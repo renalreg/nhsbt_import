@@ -2,12 +2,13 @@ import csv
 from datetime import datetime
 import time
 
-from rr.database.sqlserver import SQLServerDatabase
-from rr_utils import rr_str
+from rr_database.mssql import MSSQLDatabase
+from rr_common.rr_general_utils import rr_str
 
-PAEDS_CSV = r"R:\0 Informatics\BAPN\2014\9 UKT\Paeds for UKT Patients Matching.csv"
-INPUT_FILENAME = r"Q:\UKT and Transplant Data\2015-10\uktr_data_13OCT2015\UKTR_DATA_13OCT2015.csv"
-OUTPUT_FILENAME = r"Q:\UKT and Transplant Data\2015-10\uktr_data_13OCT2015\UKTR_DATA_13OCT2015_MATCHED.csv"
+
+PAEDS_CSV = r"2015 Paeds for NHSBT Matching.csv"
+INPUT_FILENAME = r"UKTR_DATA_12JUL2016.csv"
+OUTPUT_FILENAME = r"UKTR_DATA_12JUL2016_MATCHED.csv"
 
 
 class Error(Exception):
@@ -24,7 +25,7 @@ def create_patients_table(db):
 
 
 def main():
-    db = SQLServerDatabase.connect()
+    db = MSSQLDatabase.connect()
 
     create_patients_table(db)
 
