@@ -2,7 +2,7 @@ import csv
 from datetime import datetime
 import time
 
-from rr_database.mssql import MSSQLDatabase
+from rr_database.sqlserver import SQLServerDatabase
 from rr_common.rr_general_utils import rr_str
 
 
@@ -25,7 +25,7 @@ def create_patients_table(db):
 
 
 def main():
-    db = MSSQLDatabase.connect()
+    db = SQLServerDatabase.connect()
 
     create_patients_table(db)
 
