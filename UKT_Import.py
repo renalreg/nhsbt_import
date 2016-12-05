@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from UKT_Models import UKT_Patient, UKT_Transplant
-from RR_Models import RR_Patient, RR_Deleted_Patient
+from rr_common.RR_Models import RR_Patient, RR_Deleted_Patient
 from rr_reports import ExcelLib
 
 Engine = create_engine("mssql+pyodbc://rr-sql-live/renalreg?driver=SQL+Server+Native+Client+11.0")
@@ -18,7 +18,7 @@ Cursor = Engine.connect()
 SessionMaker = sessionmaker(bind=Engine)
 Session = SessionMaker()
 
-InputCSVReader = csv.reader(open(r"UKRR_UKTR_25JUL2016.csv", 'rb'))
+InputCSVReader = csv.reader(open(r"Q:/NHSBT/2016-10/UKRR_UKTR_09NOV2016.csv", 'rb'))
 
 #Note: This script does not do matching itself. Run to create the new patient records, run the matching PL/SQL procedure then re-run to get the complete report
 
@@ -230,7 +230,7 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
         else:
             print "Error", UKTSSA_No, "in the database multiple times"
 
-        date_format = '%d/%m/%Y'
+        date_format = '%d-%b-%y'
 
         #Transplants
         #for x in (15, 26, 37, 48, 59, 70): - 2011 file - Note this was somewhat incorrect as this was the position of the TXID fields whereas the full Transplant record started a couple of fields earlier.
