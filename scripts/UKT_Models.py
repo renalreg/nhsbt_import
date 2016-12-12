@@ -7,6 +7,7 @@ Base = declarative_base()
 
 class UKT_Patient(Base):
 
+
     __tablename__ = 'ukt_patients'
 
 #   Note - SQLAlchemy sends 'proper case' items to Oracle in speech marks implying Case Sensitivity - which then doesn't match.
@@ -21,6 +22,7 @@ class UKT_Patient(Base):
     UKT_Date_Birth = Column('ukt_date_birth', Date)
 
 class UKT_Transplant(Base):
+
 
     __tablename__ = 'ukt_transplants'
 
@@ -45,3 +47,4 @@ class UKT_Transplant(Base):
     Cause_Of_Failure_Text = Column('cause_of_failure_text', String)
     CIT_Mins = Column('cits_mins', String)
     HLA_Mismatch = Column('hla_mismatch', String)
+	
