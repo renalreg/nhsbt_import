@@ -23,7 +23,26 @@ InputCSVReader = csv.reader(open(r"Q:/NHSBT/2016-10/UKRR_UKTR_09NOV2016.csv", 'r
 # Note: This script does not do matching itself. Run to create the new patient records, run the matching PL/SQL procedure then re-run to get the complete report
 
 TheExcelErrorWB = ExcelLib.ExcelWB()
-TheExcelErrorWB.AddSheet("Match Differences", ("UKTSSA_No", "Match Type", "File RR_No", "File Surname", "File Forename", "File Sex", "File Date Birth", "File NHS Number", "DB RR_No",  "DB Surname", "DB Forename", "DB Sex", "DB Date Birth", "DB NHS NUmber") , 0)
+TheExcelErrorWB.AddSheet(
+    "Match Differences",
+    (
+        "UKTSSA_No",
+        "Match Type",
+        "File RR_No",
+        "File Surname",
+        "File Forename",
+        "File Sex",
+        "File Date Birth",
+        "File NHS Number",
+        "DB RR_No",
+        "DB Surname",
+        "DB Forename",
+        "DB Sex",
+        "DB Date Birth",
+        "DB NHS NUmber"
+    ),
+    0
+)
 TheExcelErrorWB.AddSheet("Patient Field Differences", ("UKTSSA_No", "Field", "File Value", "Previous Import Value"), 0)
 TheExcelErrorWB.AddSheet('Transplant Field Differences', ("UKTSSA_No", "Transplant_ID", "Field", "File Value", "Previous Import Value"), 0)
 TheExcelErrorWB.AddSheet("Invalid Postcodes", ("UKTSSA_No", "Message", "Value"), 0)
@@ -97,12 +116,12 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                         TheUKTPatient.Surname = Surname
 
                 if Forename != TheUKTPatient.Forename:
-            
+
                     if UpdateRecords:
                         TheUKTPatient.Forename = Forename
 
                 if Sex != TheUKTPatient.Sex:
-                
+
                     if UpdateRecords:
                         TheUKTPatient.Sex = Sex
 
@@ -112,12 +131,12 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                         TheUKTPatient.Post_Code = Post_Code
 
                 if New_NHS_No != TheUKTPatient.New_NHS_No:
-                
+
                     if UpdateRecords:
                         TheUKTPatient.New_NHS_No = New_NHS_No
 
                 if UKT_Date_Death != TheUKTPatient.UKT_Date_Death:
-                   
+
                     if UpdateRecords:
                         TheUKTPatient.UKT_Date_Death = UKT_Date_Death
 
@@ -127,7 +146,7 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
 
                 if RR_No != TheUKTPatient.RR_No and (TheUKTPatient.RR_No is not None or RR_No is not None):
                     MatchType = None
-                TheRRPatient=None
+                TheRRPatient = None
                 if RR_No is not None and TheUKTPatient.RR_No is None:
                     MatchType = "UKT Only Match"
                     try:
@@ -154,55 +173,58 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                             MatchType = "Match Difference"
 
                 if TheRRPatient is not None:
-                    TheExcelErrorWB.Sheets['Match Differences'].WriteRow((UKTSSA_No, MatchType,
-                                    RR_No,
-                                    Surname,
-                                    Forename,
-                                    Sex,
-                                    UKT_Date_Birth,
-                                    New_NHS_No,
-                                    TheRRPatient.RR_No,
-                                    TheRRPatient.Surname,
-                                    TheRRPatient.Forename,
-                                    TheRRPatient.Sex,
-                                    TheRRPatient.Date_Birth,
-                                    TheRRPatient.New_NHS_No
-                                   ))
+                    TheExcelErrorWB.Sheets['Match Differences'].WriteRow(
+                        (
+                            UKTSSA_No,
+                            MatchType,
+                            RR_No,
+                            Surname,
+                            Forename,
+                            Sex,
+                            UKT_Date_Birth,
+                            New_NHS_No,
+                            TheRRPatient.RR_No,
+                            TheRRPatient.Surname,
+                            TheRRPatient.Forename,
+                            TheRRPatient.Sex,
+                            TheRRPatient.Date_Birth,
+                            TheRRPatient.New_NHS_No
+                        )
+                    )
                 else:
-                    TheExcelErrorWB.Sheets['Match Differences'].WriteRow((UKTSSA_No, MatchType,
-                                    RR_No,
-                                    Surname,
-                                    Forename,
-                                    Sex,
-                                    UKT_Date_Birth,
-                                    New_NHS_No,
-                                    None,
-                                    None,
-                                    None,
-                                    None,
-                                    None,
-                                    None
-                                   ))
-
+                    TheExcelErrorWB.Sheets['Match Differences'].WriteRow((
+                        UKTSSA_No, MatchType,
+                        RR_No,
+                        Surname,
+                        Forename,
+                        Sex,
+                        UKT_Date_Birth,
+                        New_NHS_No,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None
+                    ))
                 # Update the RR_No
                 if RR_No is not None and RR_No != TheUKTPatient.RR_No and UpdateRecords:
                     TheUKTPatient.RR_No = RR_No
-                    
             elif len(Results) == 0:
                 if CreateRecords:
-                    ThePatient = UKT_Patient(UKTSSA_No=UKTSSA_No,
-                                    Surname=Surname,
-                                    Forename=Forename, 
-                                    Sex=Sex,
-                                    Post_Code=Post_Code,
-                                    New_NHS_No=New_NHS_No,
-                                    RR_No=RR_No,
-                                    UKT_Date_Death=UKT_Date_Death,
-                                    UKT_Date_Birth=UKT_Date_Birth)
+                    ThePatient = UKT_Patient(
+                        UKTSSA_No=UKTSSA_No,
+                        Surname=Surname,
+                        Forename=Forename,
+                        Sex=Sex,
+                        Post_Code=Post_Code,
+                        New_NHS_No=New_NHS_No,
+                        RR_No=RR_No,
+                        UKT_Date_Death=UKT_Date_Death,
+                        UKT_Date_Birth=UKT_Date_Birth)
                     Session.add(ThePatient)
-        else:
-            print "Error", UKTSSA_No, "in the database multiple times"
-
+                else:
+                    print "Error", UKTSSA_No, "in the database multiple times"
         date_format = '%d-%b-%y'
 
         # Transplants
