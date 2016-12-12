@@ -58,6 +58,7 @@ CreateRecords = True
 
 PatientList = list()
 TransplantList = list()
+date_format = '%d-%b-%y'
 
 for line_number, Row in enumerate(InputCSVReader, start=1):
     if line_number % 100 == 0:
@@ -225,7 +226,6 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                     Session.add(ThePatient)
                 else:
                     print "Error", UKTSSA_No, "in the database multiple times"
-        date_format = '%d-%b-%y'
 
         # Transplants
         # for x in (15, 26, 37, 48, 59, 70): - 2011 file - Note this was somewhat incorrect as this was the position of the TXID fields whereas the full Transplant record started a couple of fields earlier.
