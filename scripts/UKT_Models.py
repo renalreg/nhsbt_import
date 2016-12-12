@@ -6,7 +6,7 @@ Base = declarative_base()
 # http://docs.sqlalchemy.org/en/latest/dialects/oracle.html#identifier-casing
 
 
-class UKT_Patient(Base):
+class UKT_Patient(Base): 
 
     __tablename__ = 'ukt_patients'
 
@@ -22,7 +22,7 @@ class UKT_Patient(Base):
     UKT_Date_Birth = Column('ukt_date_birth', Date)
 
 
-class UKT_Transplant(Base):
+class UKT_Transplant(Base): 
 
     __tablename__ = 'ukt_transplants'
 
