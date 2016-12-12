@@ -47,4 +47,3 @@ class UKT_Transplant(Base):
     Cause_Of_Failure_Text = Column('cause_of_failure_text', String)
     CIT_Mins = Column('cits_mins', String)
     HLA_Mismatch = Column('hla_mismatch', String)
-	
