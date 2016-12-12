@@ -190,15 +190,14 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                     
             elif len(Results) == 0:
                 if CreateRecords:
-                    ThePatient = UKT_Patient(
-                                    UKTSSA_No=UKTSSA_No, 
-                                    Surname=Surname, 
+                    ThePatient = UKT_Patient(UKTSSA_No=UKTSSA_No,
+                                    Surname=Surname,
                                     Forename=Forename, 
-                                    Sex=Sex, 
-                                    Post_Code = Post_Code, 
-                                    New_NHS_No=New_NHS_No, 
-                                    RR_No=RR_No, 
-                                    UKT_Date_Death=UKT_Date_Death, 
+                                    Sex=Sex,
+                                    Post_Code=Post_Code,
+                                    New_NHS_No=New_NHS_No,
+                                    RR_No=RR_No,
+                                    UKT_Date_Death=UKT_Date_Death,
                                     UKT_Date_Birth=UKT_Date_Birth)
                     Session.add(ThePatient)
         else:
@@ -206,11 +205,11 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
 
         date_format = '%d-%b-%y'
 
-        #Transplants
-        #for x in (15, 26, 37, 48, 59, 70): - 2011 file - Note this was somewhat incorrect as this was the position of the TXID fields whereas the full Transplant record started a couple of fields earlier.
-        #In 2012 an extra field was added.
-        #for i, x in enumerate((10, 24, 38, 52, 66, 80)):
-        #Loss of PID for 2013
+        # Transplants
+        # for x in (15, 26, 37, 48, 59, 70): - 2011 file - Note this was somewhat incorrect as this was the position of the TXID fields whereas the full Transplant record started a couple of fields earlier.
+        # In 2012 an extra field was added.
+        # for i, x in enumerate((10, 24, 38, 52, 66, 80)):
+        # Loss of PID for 2013
         for i, x in enumerate((3, 17, 31, 45, 59, 73)):
 
             Registration_ID = str(UKTSSA_No) + "_" + str(i + 1)
@@ -312,7 +311,7 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                         if UpdateRecords:
                             TheTransplant.Transplant_Organ = Transplant_Organ
 
-                    #TODO: This might benefit from all being converted to ASCII
+                    # TODO: This might benefit from all being converted to ASCII
                     if Transplant_Unit != TheTransplant.Transplant_Unit:
                         if TheTransplant.Transplant_Unit is not None:
                             TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Unit", Transplant_Unit, TheTransplant.Transplant_Unit))
