@@ -26,7 +26,26 @@ InputCSVReader = csv.reader(open(r"Q:/NHSBT/2016-10/UKRR_UKTR_09NOV2016.csv", 'r
 # TODO: Check what that comment means
 
 TheExcelErrorWB = ExcelLib.ExcelWB()
-TheExcelErrorWB.AddSheet("Match Differences", ("UKTSSA_No", "Match Type", "File RR_No", "File Surname", "File Forename", "File Sex", "File Date Birth", "File NHS Number", "DB RR_No",  "DB Surname", "DB Forename", "DB Sex", "DB Date Birth", "DB NHS NUmber") , 0)
+TheExcelErrorWB.AddSheet(
+    "Match Differences",
+    (
+        "UKTSSA_No",
+        "Match Type",
+        "File RR_No",
+        "File Surname",
+        "File Forename",
+        "File Sex",
+        "File Date Birth",
+        "File NHS Number",
+        "DB RR_No",
+        "DB Surname",
+        "DB Forename",
+        "DB Sex",
+        "DB Date Birth",
+        "DB NHS NUmber"
+    ),
+    0
+)
 TheExcelErrorWB.AddSheet("Patient Field Differences", ("UKTSSA_No", "Field", "File Value", "Previous Import Value"), 0)
 TheExcelErrorWB.AddSheet('Transplant Field Differences', ("UKTSSA_No", "Transplant_ID", "Field", "File Value", "Previous Import Value"), 0)
 TheExcelErrorWB.AddSheet("Invalid Postcodes", ("UKTSSA_No", "Message", "Value"), 0)
@@ -42,26 +61,21 @@ CreateRecords = True
 
 PatientList = list()
 TransplantList = list()
+date_format = '%d-%b-%y'
 
 for line_number, Row in enumerate(InputCSVReader, start=1):
     #if line_number % 100 == 0:
     print "on line %d" % line_number
 
-    if FirstRow is True:
+    if FirstRow:
         FirstRow = False
     else:
-        #If the last Rows are blank then they might not be counted
-        #if len(Row) == 8:
-            #Row.extend(('', '' ))
-        #elif len(Row) == 9:
-            #Row.append('')
-
         Row = list(Row)
         for i in xrange(0, len(Row)):
             if isinstance(Row[i], str) or isinstance(Row[i], unicode):
                 Row[i] = Row[i].decode('utf-8', 'ignore')
 
-        #Empty Strings are needed in places here as that's what SQLAlachemy appears to be returning as Null for String fields
+        # Empty Strings are needed in places here as that's what SQLAlachemy appears to be returning as Null for String fields
 
         UKTSSA_No = int(Row[0].strip())
         if UKTSSA_No in (0, ''):
@@ -92,64 +106,51 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
         else:
             UKT_Date_Death = datetime.datetime.strptime(UKT_Date_Death, date_format).date()
 
-        UKT_Date_Birth = None
+            UKT_Date_Birth = None
 
-        Results = Session.query(UKT_Patient).filter_by(UKTSSA_No=UKTSSA_No).all()
+            Results = Session.query(UKT_Patient).filter_by(UKTSSA_No=UKTSSA_No).all()
 
-        if len(Results) == 1:
-            #print Row[0], 'Already in Database'
+            if len(Results) == 1:
 
-            TheUKTPatient = Results[0]
+                TheUKTPatient = Results[0]
 
-            #print UKT_Patient.UKTSSA_No.property.columns[0].type.length
-            #print TheUKTPatient.__class__.UKTSSA_No.property.columns[0].doc
-            #print TheUKTPatient.UKTSSA_No.__name__
+                if Surname != TheUKTPatient.Surname:
 
-            if Surname != TheUKTPatient.Surname:
-                # if TheUKTPatient.Surname is not None:
-                    # TheExcelErrorWB.Sheets["Patient Field Differences"].WriteRow((UKTSSA_No, 'Surname', Surname, TheUKTPatient.Surname))
-                if UpdateRecords:
-                    TheUKTPatient.Surname = Surname
+                    if UpdateRecords:
+                        TheUKTPatient.Surname = Surname
 
-            if Forename != TheUKTPatient.Forename:
-                # if TheUKTPatient.Forename is not None:
-                    # TheExcelErrorWB.Sheets["Patient Field Differences"].WriteRow((UKTSSA_No, 'Forename', Forename, TheUKTPatient.Forename))
-                if UpdateRecords:
-                    TheUKTPatient.Forename = Forename
+                if Forename != TheUKTPatient.Forename:
 
-            if Sex != TheUKTPatient.Sex:
-                # if TheUKTPatient.Sex is not None:
-                    # TheExcelErrorWB.Sheets["Patient Field Differences"].WriteRow((UKTSSA_No, 'Sex', Sex, TheUKTPatient.Sex))
-                if UpdateRecords:
-                    TheUKTPatient.Sex = Sex
+                    if UpdateRecords:
+                        TheUKTPatient.Forename = Forename
 
-            if Post_Code != TheUKTPatient.Post_Code:
-                # if TheUKTPatient.Post_Code is not None:
-                    # TheExcelErrorWB.Sheets["Patient Field Differences"].WriteRow((UKTSSA_No, 'Post Code', Post_Code, TheUKTPatient.Post_Code))
-                if UpdateRecords:
-                    TheUKTPatient.Post_Code = Post_Code
+                if Sex != TheUKTPatient.Sex:
 
-            if New_NHS_No != TheUKTPatient.New_NHS_No:
-                # if TheUKTPatient.New_NHS_No is not None:
-                    # TheExcelErrorWB.Sheets["Patient Field Differences"].WriteRow((UKTSSA_No, 'NHS Number', New_NHS_No, TheUKTPatient.New_NHS_No))
-                if UpdateRecords:
-                    TheUKTPatient.New_NHS_No = New_NHS_No
+                    if UpdateRecords:
+                        TheUKTPatient.Sex = Sex
 
-            if UKT_Date_Death != TheUKTPatient.UKT_Date_Death:
-                # if TheUKTPatient.UKT_Date_Death is not None:
-                    # TheExcelErrorWB.Sheets["Patient Field Differences"].WriteRow((UKTSSA_No, 'DOD', UKT_Date_Death, TheUKTPatient.UKT_Date_Death))
-                if UpdateRecords:
-                    TheUKTPatient.UKT_Date_Death = UKT_Date_Death
+                if Post_Code != TheUKTPatient.Post_Code:
 
-            if UKT_Date_Birth != TheUKTPatient.UKT_Date_Birth:
-                # if TheUKTPatient.UKT_Date_Birth is not None:
-                    # TheExcelErrorWB.Sheets["Patient Field Differences"].WriteRow((UKTSSA_No, 'DOB', UKT_Date_Birth, TheUKTPatient.UKT_Date_Birth))
-                if UpdateRecords:
-                    TheUKTPatient.UKT_Date_Birth = UKT_Date_Birth
+                    if UpdateRecords:
+                        TheUKTPatient.Post_Code = Post_Code
 
-            if RR_No != TheUKTPatient.RR_No and (TheUKTPatient.RR_No is not None or RR_No is not None):
-                MatchType = None
+                if New_NHS_No != TheUKTPatient.New_NHS_No:
 
+                    if UpdateRecords:
+                        TheUKTPatient.New_NHS_No = New_NHS_No
+
+                if UKT_Date_Death != TheUKTPatient.UKT_Date_Death:
+
+                    if UpdateRecords:
+                        TheUKTPatient.UKT_Date_Death = UKT_Date_Death
+
+                if UKT_Date_Birth != TheUKTPatient.UKT_Date_Birth:
+                    if UpdateRecords:
+                        TheUKTPatient.UKT_Date_Birth = UKT_Date_Birth
+
+                if RR_No != TheUKTPatient.RR_No and (TheUKTPatient.RR_No is not None or RR_No is not None):
+                    MatchType = None
+                TheRRPatient = None
                 if RR_No is not None and TheUKTPatient.RR_No is None:
                     MatchType = "UKT Only Match"
                     try:
@@ -160,7 +161,6 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                             MatchType = "UKT Match to Deleted Patient"
                         except:
                             print "Unable to find", RR_No, "in the database"
-                            TheRRPatient = None
                 else:
                     try:
                         TheRRPatient = Session.query(RR_Patient).filter_by(RR_No=TheUKTPatient.RR_No).all()[0]
@@ -170,7 +170,6 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                             MatchType = "Match to Deleted Patient"
                         except:
                             print "Unable to find", TheUKTPatient.RR_No, "in the database"
-                            TheRRPatient = None
                     else:
                         if RR_No is None:
                             MatchType = "New Match"
@@ -178,68 +177,64 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                             MatchType = "Match Difference"
 
                 if TheRRPatient is not None:
-                    TheExcelErrorWB.Sheets['Match Differences'].WriteRow((UKTSSA_No, MatchType,
-                                    RR_No,
-                                    Surname,
-                                    Forename,
-                                    Sex,
-                                    UKT_Date_Birth,
-                                    New_NHS_No,
-                                    TheRRPatient.RR_No,
-                                    TheRRPatient.Surname,
-                                    TheRRPatient.Forename,
-                                    TheRRPatient.Sex,
-                                    TheRRPatient.Date_Birth,
-                                    TheRRPatient.New_NHS_No
-                                   ))
+                    TheExcelErrorWB.Sheets['Match Differences'].WriteRow(
+                        (
+                            UKTSSA_No,
+                            MatchType,
+                            RR_No,
+                            Surname,
+                            Forename,
+                            Sex,
+                            UKT_Date_Birth,
+                            New_NHS_No,
+                            TheRRPatient.RR_No,
+                            TheRRPatient.Surname,
+                            TheRRPatient.Forename,
+                            TheRRPatient.Sex,
+                            TheRRPatient.Date_Birth,
+                            TheRRPatient.New_NHS_No
+                        )
+                    )
                 else:
-                    TheExcelErrorWB.Sheets['Match Differences'].WriteRow((UKTSSA_No, MatchType,
-                                    RR_No,
-                                    Surname,
-                                    Forename,
-                                    Sex,
-                                    UKT_Date_Birth,
-                                    New_NHS_No,
-                                    None,
-                                    None,
-                                    None,
-                                    None,
-                                    None,
-                                    None
-                                   ))
+                    TheExcelErrorWB.Sheets['Match Differences'].WriteRow((
+                        UKTSSA_No, MatchType,
+                        RR_No,
+                        Surname,
+                        Forename,
+                        Sex,
+                        UKT_Date_Birth,
+                        New_NHS_No,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None
+                    ))
+                # Update the RR_No
+                if RR_No is not None and RR_No != TheUKTPatient.RR_No and UpdateRecords:
+                    TheUKTPatient.RR_No = RR_No
+            elif len(Results) == 0:
+                if CreateRecords:
+                    ThePatient = UKT_Patient(
+                        UKTSSA_No=UKTSSA_No,
+                        Surname=Surname,
+                        Forename=Forename,
+                        Sex=Sex,
+                        Post_Code=Post_Code,
+                        New_NHS_No=New_NHS_No,
+                        RR_No=RR_No,
+                        UKT_Date_Death=UKT_Date_Death,
+                        UKT_Date_Birth=UKT_Date_Birth)
+                    Session.add(ThePatient)
+                else:
+                    print "Error", UKTSSA_No, "in the database multiple times"
 
-            # Update the RR_No
-            if RR_No is not None and RR_No != TheUKTPatient.RR_No and UpdateRecords:
-                TheUKTPatient.RR_No = RR_No
-
-            # if UKT_Date_Death != TheUKTPatient.UKT_Date_Death:
-                # if TheUKTPatient.UKT_Date_Death is not None:
-                    # TheExcelErrorWB.Sheets["Patient Field Differences"].WriteRow((UKTSSA_No, 'Date of Death', UKT_Date_Death, TheUKTPatient.UKT_Date_Death))
-                # if UpdateRecords == True:
-                    # TheUKTPatient.UKT_Date_Death = UKT_Date_Death
-
-            # if UKT_Date_Birth != TheUKTPatient.UKT_Date_Birth:
-                # if TheUKTPatient.UKT_Date_Birth is not None:
-                    # TheExcelErrorWB.Sheets["Patient Field Differences"].WriteRow((UKTSSA_No, 'Date of Birth', UKT_Date_Birth, TheUKTPatient.UKT_Date_Birth))
-                # if UpdateRecords == True:
-                    # TheUKTPatient.UKT_Date_Birth = UKT_Date_Birth
-
-        elif len(Results) == 0:
-            #print UKTSSA_No, 'Not in Database'
-
-            if CreateRecords == True:
-                ThePatient = UKT_Patient(UKTSSA_No=UKTSSA_No, Surname=Surname, Forename=Forename, Sex=Sex, Post_Code = Post_Code, New_NHS_No=New_NHS_No, RR_No=RR_No, UKT_Date_Death=UKT_Date_Death, UKT_Date_Birth=UKT_Date_Birth)
-                Session.add(ThePatient)
-        else:
-            print "Error", UKTSSA_No, "in the database multiple times"
-
-        date_format = '%d-%b-%y'
-
-        #Transplants
-        #for x in (15, 26, 37, 48, 59, 70): - 2011 file - Note this was somewhat incorrect as this was the position of the TXID fields whereas the full Transplant record started a couple of fields earlier.
-        #In 2012 an extra field was added.
-        #for i, x in enumerate((10, 24, 38, 52, 66, 80)):
-        #Loss of PID for 2013
+        # Transplants
+        # for x in (15, 26, 37, 48, 59, 70): - 2011 file - Note this was somewhat incorrect as this was the position of the TXID fields whereas the full Transplant record started a couple of fields earlier.
+        # In 2012 an extra field was added.
+        # for i, x in enumerate((10, 24, 38, 52, 66, 80)):
+        # Loss of PID for 2013
         #for i, x in enumerate((3, 17, 31, 45, 59, 73)):
         # More fields added in October 2016
         for i, x in enumerate((3, 21, 39, 57, 75, 93)):
@@ -348,78 +343,78 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                     if Transplant_Date != TheTransplant.Transplant_Date:
                         if TheTransplant.Transplant_Date is not None:
                             TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Date", Transplant_Date, TheTransplant.Transplant_Date))
-                        if UpdateRecords == True:
+                        if UpdateRecords:
                             TheTransplant.Transplant_Date = Transplant_Date
 
                     if Transplant_Type != TheTransplant.Transplant_Type:
                         if TheTransplant.Transplant_Type is not None:
                             TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Type", Transplant_Type, TheTransplant.Transplant_Type))
-                        if UpdateRecords == True:
+                        if UpdateRecords:
                             TheTransplant.Transplant_Type = Transplant_Type
 
                     if Transplant_Organ != TheTransplant.Transplant_Organ:
                         if TheTransplant.Transplant_Organ is not None:
                             TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Organ", Transplant_Organ, TheTransplant.Transplant_Organ))
-                        if UpdateRecords == True:
+                        if UpdateRecords:
                             TheTransplant.Transplant_Organ = Transplant_Organ
 
                     # TODO: This might benefit from all being converted to ASCII
                     if Transplant_Unit != TheTransplant.Transplant_Unit:
                         if TheTransplant.Transplant_Unit is not None:
                             TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Unit", Transplant_Unit, TheTransplant.Transplant_Unit))
-                        if UpdateRecords == True:
+                        if UpdateRecords:
                             TheTransplant.Transplant_Unit = Transplant_Unit
 
                     if UKT_Fail_Date != TheTransplant.UKT_Fail_Date:
                         if TheTransplant.UKT_Fail_Date is not None:
                             TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "UKT Fail Date", UKT_Fail_Date, TheTransplant.UKT_Fail_Date))
-                        if UpdateRecords == True:
+                        if UpdateRecords:
                             TheTransplant.UKT_Fail_Date = UKT_Fail_Date
 
                     if Transplant_Sex != TheTransplant.Transplant_Sex:
                         if TheTransplant.Transplant_Sex is not None:
                             TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Sex", Transplant_Sex, TheTransplant.Transplant_Sex))
-                        if UpdateRecords == True:
+                        if UpdateRecords:
                             TheTransplant.Transplant_Sex = Transplant_Sex
 
                     if Transplant_ID != TheTransplant.Transplant_ID:
                         if TheTransplant.Transplant_ID is not None:
                             TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant ID", Transplant_ID, TheTransplant.Transplant_ID))
-                        if UpdateRecords == True:
+                        if UpdateRecords:
                             TheTransplant.Transplant_ID = Transplant_ID
 
                     if Transplant_Relationship != TheTransplant.Transplant_Relationship:
                         if TheTransplant.Transplant_Relationship is not None:
                             TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Relationship", Transplant_Relationship, TheTransplant.Transplant_Relationship))
-                        if UpdateRecords == True:
+                        if UpdateRecords:
                             TheTransplant.Transplant_Relationship = Transplant_Relationship
 
                     if Registration_Date != TheTransplant.Registration_Date:
                         if TheTransplant.Registration_Date is not None:
                             TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Registration Date", Registration_Date, TheTransplant.Registration_Date))
-                        if UpdateRecords == True:
+                        if UpdateRecords:
                             TheTransplant.Registration_Date = Registration_Date
 
                     if Registration_Date_Type != TheTransplant.Registration_Date_Type:
                         if TheTransplant.Registration_Date_Type is not None:
                             TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Registration Date Type", Registration_Date_Type, TheTransplant.Registration_Date_Type))
-                        if UpdateRecords == True:
+                        if UpdateRecords:
                             TheTransplant.Registration_Date_Type = Registration_Date_Type
 
                     if Registration_End_Date != TheTransplant.Registration_End_Date:
                         if TheTransplant.Registration_End_Date is not None:
                             TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Registration End Date", Registration_End_Date, TheTransplant.Registration_End_Date))
-                        if UpdateRecords == True:
+                        if UpdateRecords:
                             TheTransplant.Registration_End_Date = Registration_End_Date
 
                     if Registration_End_Status != TheTransplant.Registration_End_Status:
                         if TheTransplant.Registration_End_Status is not None:
                             TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Registration End Status", Registration_End_Status, TheTransplant.Registration_End_Status))
-                        if UpdateRecords == True:
+                        if UpdateRecords:
                             TheTransplant.Registration_End_Status = Registration_End_Status
 
                 else:
-                    if CreateRecords == True:
+                    if CreateRecords:
                         TheTransplant = UKT_Transplant(     UKTSSA_No=UKTSSA_No, Transplant_ID=Transplant_ID, Transplant_Date=Transplant_Date, Transplant_Type=Transplant_Type,
                                                             Transplant_Organ=Transplant_Organ, Transplant_Unit=Transplant_Unit, UKT_Fail_Date=UKT_Fail_Date, Registration_ID=Registration_ID,
                                                             Registration_Date=Registration_Date, Registration_Date_Type=Registration_Date_Type, Registration_End_Date=Registration_End_Date,
@@ -446,11 +441,11 @@ Results = Cursor.execute(SQLString).fetchall()
 
 MissingPatientCount = 0
 for Row in Results:
-    if Row[0] not in PatientList:
+    if not (Row[0] in PatientList):
         MissingPatientCount = MissingPatientCount + 1
         TheExcelErrorWB.Sheets['Missing Patients'].WriteRow((Row[0], Row[1]))
 
-print "Missing Prior UKT Patients", MissingPatientCount
+print("Missing Prior UKT Patients", MissingPatientCount)
 
 SQLString = """
 SELECT
@@ -467,7 +462,7 @@ Results = Cursor.execute(SQLString).fetchall()
 
 TransplantList = set(TransplantList)
 
-#TODO: For Subsequent updates it may make sense to look for missing registrations
+# TODO: For Subsequent updates it may make sense to look for missing registrations
 
 for Row in Results:
     if Row[0] not in TransplantList:

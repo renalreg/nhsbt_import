@@ -5,8 +5,8 @@ Base = declarative_base()
 
 # http://docs.sqlalchemy.org/en/latest/dialects/oracle.html#identifier-casing
 
-class UKT_Patient(Base):
 
+class UKT_Patient(Base):
     __tablename__ = 'ukt_patients'
 
     # Note - SQLAlchemy sends 'proper case' items to Oracle in speech marks implying Case Sensitivity - which then doesn't match.
@@ -17,14 +17,11 @@ class UKT_Patient(Base):
     Post_Code = Column('post_code', String)
     New_NHS_No = Column('new_nhs_no', Integer)
     RR_No = Column('rr_no', Integer)
-    #Match = Column('MATCH', String)
     UKT_Date_Death = Column('ukt_date_death', Date)
     UKT_Date_Birth = Column('ukt_date_birth', Date)
-    #RR_Match = Column('RR_MATCH', String)
-    #RR_RR_No = Column('RR_RR_NO', Integer)
+
 
 class UKT_Transplant(Base):
-
     __tablename__ = 'ukt_transplants'
 
     Transplant_ID = Column('transplant_id', Integer)
@@ -48,6 +45,3 @@ class UKT_Transplant(Base):
     Cause_Of_Failure_Text = Column('cause_of_failure_text', String)
     CIT_Mins = Column('cit_mins', String)
     HLA_Mismatch = Column('hla_mismatch', String)
-    
-    
-    
