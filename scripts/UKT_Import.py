@@ -12,15 +12,18 @@ Engine = create_engine("mssql+pyodbc://rr-sql-live/renalreg?driver=SQL+Server+Na
 
 Cursor = Engine.connect()
 
-#TODO: Update the comments in this to make sure they match up with the new way of working.
-#TODO: Put something in this to ignore 9999xxxxx Paed patients. Note that 20 (but only 20?) got into the database last time this was run. This is puzzling.
+# TODO: Update the comments in this to make sure they match up with the new way of working.
+# TODO: Put something in this to ignore 9999xxxxx Paed patients. Note that 20 (but only 20?) got into the database last time this was run. This is puzzling.
+
+# TODO: This is not handling all the recent fields comprehensively.
 
 SessionMaker = sessionmaker(bind=Engine)
 Session = SessionMaker()
 
 InputCSVReader = csv.reader(open(r"Q:/NHSBT/2016-10/UKRR_UKTR_09NOV2016.csv", 'rb'))
 
-#Note: This script does not do matching itself. Run to create the new patient records, run the matching PL/SQL procedure then re-run to get the complete report
+# Note: This script does not do matching itself. Run to create the new patient records, run the matching PL/SQL procedure then re-run to get the complete report
+# TODO: Check what that comment means
 
 TheExcelErrorWB = ExcelLib.ExcelWB()
 TheExcelErrorWB.AddSheet("Match Differences", ("UKTSSA_No", "Match Type", "File RR_No", "File Surname", "File Forename", "File Sex", "File Date Birth", "File NHS Number", "DB RR_No",  "DB Surname", "DB Forename", "DB Sex", "DB Date Birth", "DB NHS NUmber") , 0)
@@ -41,8 +44,8 @@ PatientList = list()
 TransplantList = list()
 
 for line_number, Row in enumerate(InputCSVReader, start=1):
-    if line_number % 100 == 0:
-        print "on line %d" % line_number
+    #if line_number % 100 == 0:
+    print "on line %d" % line_number
 
     if FirstRow is True:
         FirstRow = False
@@ -237,7 +240,9 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
         #In 2012 an extra field was added.
         #for i, x in enumerate((10, 24, 38, 52, 66, 80)):
         #Loss of PID for 2013
-        for i, x in enumerate((3, 17, 31, 45, 59, 73)):
+        #for i, x in enumerate((3, 17, 31, 45, 59, 73)):
+        # More fields added in October 2016
+        for i, x in enumerate((3, 21, 39, 57, 75, 93)):
 
             Registration_ID = str(UKTSSA_No) + "_" + str(i + 1)
 
@@ -314,6 +319,26 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                 if Transplant_Dialysis in ('', None):
                     Transplant_Dialysis = ''
 
+                CIT_Mins = Row[x + 14]
+                if CIT_Mins in ('', None):
+                    CIT_Mins = ''
+
+                HLA_Mismatch = Row[x + 15]
+                if HLA_Mismatch in ('', None):
+                    HLA_Mismatch = ''
+                    
+                Cause_Of_Failure = Row[x + 16]
+                if Cause_Of_Failure in ('', None):
+                    Cause_Of_Failure = ''
+                    
+                Cause_Of_Failure_Text = Row[x + 17]
+                if Cause_Of_Failure_Text in('', None):
+                    Cause_Of_Failure_Text = ''
+                    
+
+                    
+
+                    
                 Results = Session.query(UKT_Transplant).filter_by(Registration_ID=Registration_ID).all()
 
                 if len(Results) == 1:
@@ -338,7 +363,7 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                         if UpdateRecords == True:
                             TheTransplant.Transplant_Organ = Transplant_Organ
 
-                    #TODO: This might benefit from all being converted to ASCII
+                    # TODO: This might benefit from all being converted to ASCII
                     if Transplant_Unit != TheTransplant.Transplant_Unit:
                         if TheTransplant.Transplant_Unit is not None:
                             TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Unit", Transplant_Unit, TheTransplant.Transplant_Unit))
@@ -395,7 +420,13 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
 
                 else:
                     if CreateRecords == True:
-                        TheTransplant = UKT_Transplant(UKTSSA_No=UKTSSA_No, Transplant_ID=Transplant_ID, Transplant_Date=Transplant_Date, Transplant_Type=Transplant_Type, Transplant_Organ=Transplant_Organ, Transplant_Unit=Transplant_Unit, UKT_Fail_Date=UKT_Fail_Date, Registration_ID=Registration_ID, Registration_Date=Registration_Date, Registration_Date_Type=Registration_Date_Type, Registration_End_Date=Registration_End_Date, Registration_End_Status=Registration_End_Status, Transplant_Consideration=Transplant_Consideration, Transplant_Dialysis=Transplant_Dialysis, Transplant_Relationship=Transplant_Relationship, Transplant_Sex=Transplant_Sex)
+                        TheTransplant = UKT_Transplant(     UKTSSA_No=UKTSSA_No, Transplant_ID=Transplant_ID, Transplant_Date=Transplant_Date, Transplant_Type=Transplant_Type,
+                                                            Transplant_Organ=Transplant_Organ, Transplant_Unit=Transplant_Unit, UKT_Fail_Date=UKT_Fail_Date, Registration_ID=Registration_ID,
+                                                            Registration_Date=Registration_Date, Registration_Date_Type=Registration_Date_Type, Registration_End_Date=Registration_End_Date,
+                                                            Registration_End_Status=Registration_End_Status, Transplant_Consideration=Transplant_Consideration, Transplant_Dialysis=Transplant_Dialysis,
+                                                            Transplant_Relationship=Transplant_Relationship, Transplant_Sex=Transplant_Sex, Cause_Of_Failure=Cause_Of_Failure,
+                                                            Cause_Of_Failure_Text=Cause_Of_Failure_Text, CIT_Mins=CIT_Mins, HLA_Mismatch=HLA_Mismatch
+                                                            )
                         Session.add(TheTransplant)
 
 if CreateRecords is True or UpdateRecords is True:
