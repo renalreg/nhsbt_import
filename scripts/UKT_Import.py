@@ -20,7 +20,7 @@ Cursor = Engine.connect()
 SessionMaker = sessionmaker(bind=Engine)
 Session = SessionMaker()
 
-InputCSVReader = csv.reader(open(r"Q:/NHSBT/2016-10/UKRR_UKTR_09NOV2016.csv", 'rb'))
+InputCSVReader = csv.reader(open(r"Q:/NHSBT/2016-10/UKRR_UKTR_06JAN2017.csv", 'rb'))
 
 # Note: This script does not do matching itself. Run to create the new patient records, run the matching PL/SQL procedure then re-run to get the complete report
 # TODO: Check what that comment means
@@ -61,7 +61,9 @@ CreateRecords = True
 
 PatientList = list()
 TransplantList = list()
-date_format = '%d-%b-%y'
+# NOTE: They are random with the date formats
+# TODO: Give the ability to cope with several? (without going to the extremes of the AKI Validation)
+date_format = '%d%b%Y'
 
 for line_number, Row in enumerate(InputCSVReader, start=1):
     #if line_number % 100 == 0:
@@ -176,6 +178,7 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                         else:
                             MatchType = "Match Difference"
 
+                # TODO: I don't think this should be writing rows in both cases.
                 if TheRRPatient is not None:
                     TheExcelErrorWB.Sheets['Match Differences'].WriteRow(
                         (
