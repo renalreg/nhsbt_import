@@ -4,15 +4,12 @@ import time
 
 from rr_database.sqlserver import SQLServerDatabase
 from rr_common.rr_general_utils import rr_str
+from rr_common.general_exceptions import Error
 
 
 PAEDS_CSV = r"Q:\NHSBT\2016-10\1 Complete Database.csv"
 INPUT_FILENAME = r"Q:\NHSBT\2016-10\UKTR_DATA_11OCT2016.csv"
 OUTPUT_FILENAME = r"Q:\NHSBT\2016-10\UKTR_DATA_11OCT2016_MATCHED.csv"
-
-
-class Error(Exception):
-    pass
 
 
 def create_patients_table(db):
