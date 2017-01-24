@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from UKT_Models import UKT_Patient, UKT_Transplant
-from rr_common.RR_Models import RR_Patient, RR_Deleted_Patient
+from RR_Models import RR_Patient, RR_Deleted_Patient
 from rr_reports import ExcelLib
 
 Engine = create_engine("mssql+pyodbc://rr-sql-live/renalreg?driver=SQL+Server+Native+Client+11.0")
