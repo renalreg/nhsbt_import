@@ -12,3 +12,4 @@ virtualenv==13.1.2
 wheel==0.24.0
 pylint==1.5.5
 flake8-junit-report==2.0.1
+-r requirements.txt

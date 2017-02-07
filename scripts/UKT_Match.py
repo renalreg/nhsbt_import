@@ -7,9 +7,9 @@ from rr_common.rr_general_utils import rr_str
 from rr_common.general_exceptions import Error
 
 
-PAEDS_CSV = r"Q:\NHSBT\2016-10\1 Complete Database.csv"
-INPUT_FILENAME = r"Q:\NHSBT\2016-10\UKTR_DATA_11OCT2016.csv"
-OUTPUT_FILENAME = r"Q:\NHSBT\2016-10\UKTR_DATA_11OCT2016_MATCHED.csv"
+PAEDS_CSV = r"Q:\NHSBT\2017-02\1 Complete Database.csv"
+INPUT_FILENAME = r"Q:\NHSBT\2017-02\UKTR_DATA_12JAN2017.csv"
+OUTPUT_FILENAME = r"Q:\NHSBT\2017-02\UKTR_DATA_12JAN2017_MATCHED.csv"
 
 
 def create_patients_table(db):
@@ -131,7 +131,7 @@ def main():
             dob = row[11]
 
             if dob != "":
-                dob = datetime.strptime(dob, "%d/%m/%Y")
+                dob = get_formatted_datetime(dob)
             else:
                 dob = None
 
@@ -205,6 +205,17 @@ def main():
         row[8] = prev_match
 
         writer.writerow(row)
+
+
+def get_formatted_datetime(d):
+    date_formats = ["%d/%m/%y", "%d-%m-%Y", "%d%b%Y"]
+    for format in date_formats:
+        try:
+            return datetime.strptime(d, format)
+        except:
+            continue
+    print("No datetime formats found for {0}".format(d))
+    return None
 
 
 def check_columns(columns, expected_columns):
