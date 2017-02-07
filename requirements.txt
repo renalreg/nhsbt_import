@@ -1,1 +1,1 @@
--e git+ssh://git@jira.renalregistry.nhs.uk:7999/rr/rr_database#egg=rr.database
+-e git+ssh://jira.renalregistry.nhs.uk:7999/rr/rr_database#egg=rr.database
