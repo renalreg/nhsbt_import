@@ -1,11 +1,10 @@
 import csv
-from datetime import datetime
 import time
 
 from rr_database.sqlserver import SQLServerDatabase
 from rr_common.rr_general_utils import rr_str
 from rr_common.general_exceptions import Error
-
+from rr_ukt_import.datetime import get_formatted_datetime
 
 PAEDS_CSV = r"Q:\NHSBT\2017-02\1 Complete Database.csv"
 INPUT_FILENAME = r"Q:\NHSBT\2017-02\UKTR_DATA_12JAN2017.csv"
@@ -205,18 +204,6 @@ def main():
         row[8] = prev_match
 
         writer.writerow(row)
-
-
-def get_formatted_datetime(d):
-    date_formats = ["%d/%m/%y", "%d-%m-%Y", "%d%b%Y"]
-    for format in date_formats:
-        try:
-            return datetime.strptime(d, format)
-        except:
-            continue
-    print("No datetime formats found for {0}".format(d))
-    return None
-
 
 def check_columns(columns, expected_columns):
     """ Check the column headings are as expected """
