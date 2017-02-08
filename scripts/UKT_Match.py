@@ -4,7 +4,8 @@ import time
 from rr_database.sqlserver import SQLServerDatabase
 from rr_common.rr_general_utils import rr_str
 from rr_common.general_exceptions import Error
-from rr_ukt_import.datetime import get_formatted_datetime
+from rr_ukt_import.dateutils import convert_datetime_string_to_datetime
+from datetime import datetime
 
 PAEDS_CSV = r"Q:\NHSBT\2017-02\1 Complete Database.csv"
 INPUT_FILENAME = r"Q:\NHSBT\2017-02\UKTR_DATA_12JAN2017.csv"
@@ -130,7 +131,7 @@ def main():
             dob = row[11]
 
             if dob != "":
-                dob = get_formatted_datetime(dob)
+                dob = convert_datetime_string_to_datetime(dob)
             else:
                 dob = None
 
@@ -204,6 +205,7 @@ def main():
         row[8] = prev_match
 
         writer.writerow(row)
+
 
 def check_columns(columns, expected_columns):
     """ Check the column headings are as expected """

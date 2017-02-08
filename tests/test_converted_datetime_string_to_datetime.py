@@ -1,10 +1,10 @@
 import unittest
-from datetime import datetime
 
 from rr_ukt_import.dateutils import convert_datetime_string_to_datetime
 
+
 class FormatDatetime(unittest.TestCase):
-    
+
     def test_existing_date_formats_return_correctly(self):
         dates = ["01/02/12", "01-02-2012", "01FEB2012"]
         for d in dates:
