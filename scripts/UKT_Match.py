@@ -6,11 +6,14 @@ from rr_common.rr_general_utils import rr_str
 from rr_common.general_exceptions import Error
 from rr_ukt_import.dateutils import convert_datetime_string_to_datetime
 from datetime import datetime
+from rr.utils.command_line import get_cmd_args
+import logging, logging.config
+import yaml
 
 PAEDS_CSV = r"Q:\NHSBT\2017-02\1 Complete Database.csv"
 INPUT_FILENAME = r"Q:\NHSBT\2017-02\UKTR_DATA_12JAN2017.csv"
 OUTPUT_FILENAME = r"Q:\NHSBT\2017-02\UKTR_DATA_12JAN2017_MATCHED.csv"
-
+OUTPUT_FILENAME = r"test.csv"
 
 def create_patients_table(db):
     sql = """
@@ -20,9 +23,11 @@ def create_patients_table(db):
     """
     db.execute(sql)
 
-
 def main():
-    db = SQLServerDatabase.connect()
+    logging.config.dictConfig(yaml.load(open('logconf.yaml', 'r')))
+    log = logging.getLogger('ukt_match')
+    dummy, datasource,catalog = get_cmd_args()
+    db = SQLServerDatabase.connect(data_source=datasource, database=catalog)
 
     create_patients_table(db)
 
@@ -31,14 +36,14 @@ def main():
     chi_no_map = {}
     uktssa_no_map = {}
 
-    print "importing paeds patients into the db..."
+    log.info("importing paeds patients into the db...")
     import_paeds_from_csv(db, PAEDS_CSV, rr_no_postcode_map)
-    print "building postcode map..."
+    log.info("building postcode map...")
     populate_rr_no_postcode_map(db, rr_no_postcode_map)
-    print "building identifier map..."
+    log.info("building identifier map...")
     populate_identifier_maps(db, nhs_no_map, chi_no_map, uktssa_no_map)
 
-    print "matching patients..."
+    log.info("matching patients...")
 
     ukt_columns = [
         "RR_ID", "UKTR_ID", "UKTR_TX_ID1", "UKTR_TX_ID2", "UKTR_TX_ID3", "UKTR_TX_ID4", "UKTR_TX_ID5", "UKTR_TX_ID6",
@@ -55,11 +60,10 @@ def main():
     combined_columns = ukt_columns + rr_columns
     writer.writerow(combined_columns)
 
-    start = time.clock()
-
+    log.info("Start Matching run")
     for line_number, row in enumerate(reader, start=1):
         if line_number % 1000 == 0:
-            print "line %d (%.2f/s)" % (line_number, line_number / (time.clock() - start))
+            log.info("line %d (%.2f/s)" % (line_number, line_number / (time.clock() - start)))
 
         pad_row(row, len(ukt_columns), fill="")
 
@@ -153,7 +157,6 @@ def main():
 
             db.cursor.callproc("PROC_UKT_MATCH_PATIENT_MATCHING", params)
             results = db.fetchall()
-
             # Found a match
             if len(results) > 0:
                 result = results[0]
@@ -189,23 +192,23 @@ def main():
 
             if match_rr_no:
                 # But matched this time
-                print "NEW_MATCH", "UKTR_ID=%d" % uktssa_no, "RR_NO=%d" % match_rr_no
+                log.info("NEW_MATCH", "UKTR_ID=%d" % uktssa_no, "RR_NO=%d" % match_rr_no)
         elif match_rr_no is None:
             # Didn't match this time
             prev_match = 3
-            print "USED_TO_MATCH", "UKTR_ID=%d" % uktssa_no, "PREV_RR_NO=%d" % prev_match_rr_no
+            log.info("USED_TO_MATCH", "UKTR_ID=%d" % uktssa_no, "PREV_RR_NO=%d" % prev_match_rr_no)
         elif prev_match_rr_no == match_rr_no:
             # Matched to the same patient
             prev_match = 1
         else:
             # Matched to a different patient
             prev_match = 2
-            print "DIFFERENT_MATCH", "UKTR_ID=%d" % uktssa_no, "PREV_RR_NO=%d" % prev_match_rr_no, "RR_NO=%d" % match_rr_no
+            log.info("DIFFERENT_MATCH", "UKTR_ID=%d" % uktssa_no, "PREV_RR_NO=%d" % prev_match_rr_no, "RR_NO=%d" % match_rr_no)
 
         row[8] = prev_match
 
         writer.writerow(row)
-
+    log.info("Finish matching run")
 
 def check_columns(columns, expected_columns):
     """ Check the column headings are as expected """
