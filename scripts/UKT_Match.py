@@ -7,13 +7,15 @@ from rr_common.general_exceptions import Error
 from rr_ukt_import.dateutils import convert_datetime_string_to_datetime
 from datetime import datetime
 from rr.utils.command_line import get_cmd_args
-import logging, logging.config
+import logging
+import logging.config
 import yaml
 
 PAEDS_CSV = r"Q:\NHSBT\2017-02\1 Complete Database.csv"
 INPUT_FILENAME = r"Q:\NHSBT\2017-02\UKTR_DATA_12JAN2017.csv"
 OUTPUT_FILENAME = r"Q:\NHSBT\2017-02\UKTR_DATA_12JAN2017_MATCHED.csv"
 OUTPUT_FILENAME = r"test.csv"
+
 
 def create_patients_table(db):
     sql = """
@@ -23,10 +25,11 @@ def create_patients_table(db):
     """
     db.execute(sql)
 
+
 def main():
     logging.config.dictConfig(yaml.load(open('logconf.yaml', 'r')))
     log = logging.getLogger('ukt_match')
-    dummy, datasource,catalog = get_cmd_args()
+    dummy, datasource, catalog = get_cmd_args()
     db = SQLServerDatabase.connect(data_source=datasource, database=catalog)
 
     create_patients_table(db)
@@ -61,6 +64,7 @@ def main():
     writer.writerow(combined_columns)
 
     log.info("Start Matching run")
+    start = 1
     for line_number, row in enumerate(reader, start=1):
         if line_number % 1000 == 0:
             log.info("line %d (%.2f/s)" % (line_number, line_number / (time.clock() - start)))
@@ -209,6 +213,7 @@ def main():
 
         writer.writerow(row)
     log.info("Finish matching run")
+
 
 def check_columns(columns, expected_columns):
     """ Check the column headings are as expected """
