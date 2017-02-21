@@ -4,18 +4,18 @@ import time
 from rr_database.sqlserver import SQLServerDatabase
 from rr_common.rr_general_utils import rr_str
 from rr_common.general_exceptions import Error
+from rr_common.nhs_numbers import RR_Validate_NHS_No
 from rr_ukt_import.dateutils import convert_datetime_string_to_datetime
 from datetime import datetime
-from rr.utils.command_line import get_cmd_args
+import rr.utils.command_line
 import logging
 import logging.config
 import yaml
+import argparse
 
 PAEDS_CSV = r"Q:\NHSBT\2017-02\1 Complete Database.csv"
 INPUT_FILENAME = r"Q:\NHSBT\2017-02\UKTR_DATA_12JAN2017.csv"
 OUTPUT_FILENAME = r"Q:\NHSBT\2017-02\UKTR_DATA_12JAN2017_MATCHED.csv"
-OUTPUT_FILENAME = r"test.csv"
-
 
 def create_patients_table(db):
     sql = """
@@ -25,18 +25,29 @@ def create_patients_table(db):
     """
     db.execute(sql)
 
-
 def main():
     logging.config.dictConfig(yaml.load(open('logconf.yaml', 'r')))
     log = logging.getLogger('ukt_match')
-    dummy, datasource, catalog = get_cmd_args()
+    parser = argparse.ArgumentParser(description="ukt_match")
+    rr.utils.command_line.add_arguments(parser)
+    parser.add_argument('--output', type=str, help="Specify alternate output")
+    args = parser.parse_args()
+    parser = argparse.ArgumentParser(description='UKT_Match')
+    add_arguments(parser) 
+    datasource = 'RR-SQL-Live'
+    catalog = 'RenalReg'
+    if (args.datasource):
+        datasource = args.datasource
+    if (args.catalog):
+        catalog = args.catalog
+    if (args.output):
+        OUTPUT_FILENAME = args.output
     db = SQLServerDatabase.connect(data_source=datasource, database=catalog)
-
     create_patients_table(db)
-
     rr_no_postcode_map = {}
     nhs_no_map = {}
     chi_no_map = {}
+    hsc_no_map = {}
     uktssa_no_map = {}
 
     log.info("importing paeds patients into the db...")
@@ -44,7 +55,7 @@ def main():
     log.info("building postcode map...")
     populate_rr_no_postcode_map(db, rr_no_postcode_map)
     log.info("building identifier map...")
-    populate_identifier_maps(db, nhs_no_map, chi_no_map, uktssa_no_map)
+    populate_identifier_maps(db, nhs_no_map, chi_no_map, hsc_no_map, uktssa_no_map)
 
     log.info("matching patients...")
 
@@ -64,10 +75,10 @@ def main():
     writer.writerow(combined_columns)
 
     log.info("Start Matching run")
-    start = 1
+    start_run = time.clock()
     for line_number, row in enumerate(reader, start=1):
         if line_number % 1000 == 0:
-            log.info("line %d (%.2f/s)" % (line_number, line_number / (time.clock() - start)))
+            log.info("line %d (%.2f/s)" % (line_number, line_number / (time.clock() - start_run)))
 
         pad_row(row, len(ukt_columns), fill="")
 
@@ -76,13 +87,14 @@ def main():
         # Note: UKT put NHS no and CHI no in the same column
         nhs_no = row[14]
         chi_no = None
-
-        if nhs_no != "":
-            nhs_no = int(nhs_no)
-
-            # Check for CHI no range
-            if 10000010 <= nhs_no <= 3199999999:
+        hsc_no = None
+        if nhs_no != '':
+            number_type = RR_Validate_NHS_No(int(nhs_no))
+            if number_type == 3:
                 chi_no = nhs_no
+                nhs_no = None
+            if number_type == 4:
+                hsc_no = nhs_no
                 nhs_no = None
         else:
             nhs_no = None
@@ -102,6 +114,13 @@ def main():
 
             if chi_no_match:
                 identifier_matches.append(chi_no_match)
+
+        # Match by HSC no
+        if hsc_no:
+            hsc_no_match = hsc_no_map.get(hsc_no, None)
+
+            if hsc_no_match:
+                identifier_matches.append(hsc_no_match)
 
         # Match by UKTSSA no
         uktssa_no_match = uktssa_no_map.get(uktssa_no, None)
@@ -150,6 +169,7 @@ def main():
                 rr_no,
                 nhs_no,
                 chi_no,
+                hsc_no,
                 uktssa_no,
                 hosp_centre,
                 local_hosp_no,
@@ -259,6 +279,13 @@ def import_paeds_from_csv(db, filename, rr_no_postcode_map):
         if chi_no == "":
             chi_no = None
 
+        hsc_no = None
+        if nhs_no:
+            number_type = RR_Validate_NHS_No(int(nhs_no))
+            if number_type == 4:
+                hsc_no = nhs_no
+                nhs_no = None
+
         uktssa_no = row[4]
 
         surname = row[5].upper()
@@ -295,6 +322,7 @@ def import_paeds_from_csv(db, filename, rr_no_postcode_map):
                 DATE_BIRTH,
                 NEW_NHS_NO,
                 CHI_NO,
+                HSC_NO,
                 LOCAL_HOSP_NO,
                 SOUNDEX_SURNAME,
                 SOUNDEX_FORENAME,
@@ -309,6 +337,7 @@ def import_paeds_from_csv(db, filename, rr_no_postcode_map):
                 :DATE_BIRTH,
                 :NEW_NHS_NO,
                 :CHI_NO,
+                :HSC_NO,
                 :BAPN_NO,
                 SOUNDEX(dbo.normalise_surname2(:SURNAME)),
                 SOUNDEX(dbo.normalise_forename2(:FORENAME)),
@@ -320,6 +349,7 @@ def import_paeds_from_csv(db, filename, rr_no_postcode_map):
             "BAPN_NO": bapn_no,
             "NEW_NHS_NO": nhs_no,
             "CHI_NO": chi_no,
+            "HSC_NO": hsc_no,
             "RR_NO": rr_no,
             "UKTSSA_NO": uktssa_no,
             "SURNAME": surname,
@@ -361,13 +391,14 @@ def populate_rr_no_postcode_map(db, rr_no_postcode_map):
         rr_no_postcode_map[rr_no] = postcode
 
 
-def populate_identifier_maps(db, nhs_no_map, chi_no_map, uktssa_no_map):
+def populate_identifier_maps(db, nhs_no_map, chi_no_map, hsc_no_map, uktssa_no_map):
     """ Build mappings from identifiers to RR columns for output """
 
     sql = """
         SELECT
             NEW_NHS_NO,
             CHI_NO,
+            HSC_NO,
             UKTSSA_NO,
             RR_NO,
             SURNAME,
@@ -385,14 +416,18 @@ def populate_identifier_maps(db, nhs_no_map, chi_no_map, uktssa_no_map):
     for row in db.fetchall():
         nhs_no = row[0]
         chi_no = row[1]
-        uktssa_no = row[2]
-        patient = list(row[3:])
+        hsc_no = row[2]
+        uktssa_no = row[3]
+        patient = list(row[4:])
 
         if nhs_no:
             nhs_no_map[nhs_no] = patient
 
         if chi_no:
             chi_no_map[chi_no] = patient
+
+        if hsc_no:
+            hsc_no_map[hsc_no] = patient
 
         if uktssa_no:
             uktssa_no_map[uktssa_no] = patient
