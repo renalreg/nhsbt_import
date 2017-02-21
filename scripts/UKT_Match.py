@@ -7,7 +7,7 @@ from rr_common.general_exceptions import Error
 from rr_common.nhs_numbers import RR_Validate_NHS_No
 from rr_ukt_import.dateutils import convert_datetime_string_to_datetime
 from datetime import datetime
-import rr.utils.command_line
+from rr.utils.command_line import add_db_arguments
 import logging
 import logging.config
 import yaml
@@ -17,6 +17,7 @@ PAEDS_CSV = r"Q:\NHSBT\2017-02\1 Complete Database.csv"
 INPUT_FILENAME = r"Q:\NHSBT\2017-02\UKTR_DATA_12JAN2017.csv"
 OUTPUT_FILENAME = r"Q:\NHSBT\2017-02\UKTR_DATA_12JAN2017_MATCHED.csv"
 
+
 def create_patients_table(db):
     sql = """
         SELECT *
@@ -25,15 +26,14 @@ def create_patients_table(db):
     """
     db.execute(sql)
 
+
 def main():
     logging.config.dictConfig(yaml.load(open('logconf.yaml', 'r')))
     log = logging.getLogger('ukt_match')
     parser = argparse.ArgumentParser(description="ukt_match")
-    rr.utils.command_line.add_arguments(parser)
+    add_db_arguments(parser)
     parser.add_argument('--output', type=str, help="Specify alternate output")
     args = parser.parse_args()
-    parser = argparse.ArgumentParser(description='UKT_Match')
-    add_arguments(parser) 
     datasource = 'RR-SQL-Live'
     catalog = 'RenalReg'
     if (args.datasource):
