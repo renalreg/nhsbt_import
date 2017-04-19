@@ -1,0 +1,4 @@
+yaml
+-e git+ssh://jira.renalregistry.nhs.uk:7999/rr/rr_database#egg=rr.database
+-e git+ssh://jira.renalregistry.nhs.uk:7999/rr/utils#egg=rr.utils
+-e git+ssh://git@jira.renalregistry.nhs.uk:7999/rr/rr_common#egg=rr_common
