@@ -20,7 +20,7 @@ Cursor = Engine.connect()
 SessionMaker = sessionmaker(bind=Engine)
 Session = SessionMaker()
 
-InputCSVReader = csv.reader(open(r"Q:/NHSBT/2016-10/UKRR_UKTR_06JAN2017.csv", 'rb'))
+InputCSVReader = csv.reader(open(r"Q:/NHSBT/2017-04a/UKRR_UKTR_18MAY2017.csv", 'rb'))
 
 # Note: This script does not do matching itself. Run to create the new patient records, run the matching PL/SQL procedure then re-run to get the complete report
 # TODO: Check what that comment means
@@ -66,7 +66,7 @@ TransplantList = list()
 date_format = '%d%b%Y'
 
 for line_number, Row in enumerate(InputCSVReader, start=1):
-    print "on line %d" % line_number
+    print("on line {}".format(line_number))
 
     if FirstRow:
         FirstRow = False
