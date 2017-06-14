@@ -25,10 +25,10 @@ def create_patients_table(db):
         FROM VWE_UKT_RR_PATIENTS;
     """
     db.execute(sql)
-    
+
     sql = "CREATE NONCLUSTERED INDEX IDX_RR_NO ON #UKT_MATCH_PATIENTS (RR_NO)"
     db.execute(sql)
-    
+
     sql = "CREATE NONCLUSTERED INDEX IDX_UNDELETED_RR_NO ON #UKT_MATCH_PATIENTS (UNDELETED_RR_NO)"
     db.execute(sql)
 

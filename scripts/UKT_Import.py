@@ -198,21 +198,23 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                     )
                 )
             else:
-                TheExcelErrorWB.Sheets['Match Differences'].WriteRow((
-                    UKTSSA_No, MatchType,
-                    RR_No,
-                    Surname,
-                    Forename,
-                    Sex,
-                    UKT_Date_Birth,
-                    New_NHS_No,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None
-                ))
+                TheExcelErrorWB.Sheets['Match Differences'].WriteRow(
+                    (
+                        UKTSSA_No, MatchType,
+                        RR_No,
+                        Surname,
+                        Forename,
+                        Sex,
+                        UKT_Date_Birth,
+                        New_NHS_No,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None
+                    )
+                )
             # Update the RR_No
             if RR_No is not None and RR_No != TheUKTPatient.RR_No and UpdateRecords:
                 TheUKTPatient.RR_No = RR_No
