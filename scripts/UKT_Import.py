@@ -20,7 +20,7 @@ Cursor = Engine.connect()
 SessionMaker = sessionmaker(bind=Engine)
 Session = SessionMaker()
 
-InputCSVReader = csv.reader(open(r"Q:/NHSBT/2017-04a/UKRR_UKTR_18MAY2017.csv", 'rb'))
+InputCSVReader = csv.reader(open(r"Q:/NHSBT/2017-07/UKRR_UKTR_22SEP2017.csv", 'rb'))
 
 # Note: This script does not do matching itself. Run to create the new patient records, run the matching PL/SQL procedure then re-run to get the complete report
 # TODO: Check what that comment means
@@ -179,42 +179,44 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
 
             # TODO: I don't think this should be writing rows in both cases.
             if TheRRPatient is not None:
-                TheExcelErrorWB.Sheets['Match Differences'].WriteRow(
-                    (
-                        UKTSSA_No,
-                        MatchType,
-                        RR_No,
-                        Surname,
-                        Forename,
-                        Sex,
-                        UKT_Date_Birth,
-                        New_NHS_No,
-                        TheRRPatient.RR_No,
-                        TheRRPatient.Surname,
-                        TheRRPatient.Forename,
-                        TheRRPatient.Sex,
-                        TheRRPatient.Date_Birth,
-                        TheRRPatient.New_NHS_No
-                    )
-                )
+                pass 
+                # TheExcelErrorWB.Sheets['Match Differences'].WriteRow(
+                    # (
+                        # UKTSSA_No,
+                        # MatchType,
+                        # RR_No,
+                        # Surname,
+                        # Forename,
+                        # Sex,
+                        # UKT_Date_Birth,
+                        # New_NHS_No,
+                        # TheRRPatient.RR_No,
+                        # TheRRPatient.Surname,
+                        # TheRRPatient.Forename,
+                        # TheRRPatient.Sex,
+                        # TheRRPatient.Date_Birth,
+                        # TheRRPatient.New_NHS_No
+                    # )
+                # )
             else:
-                TheExcelErrorWB.Sheets['Match Differences'].WriteRow(
-                    (
-                        UKTSSA_No, MatchType,
-                        RR_No,
-                        Surname,
-                        Forename,
-                        Sex,
-                        UKT_Date_Birth,
-                        New_NHS_No,
-                        None,
-                        None,
-                        None,
-                        None,
-                        None,
-                        None
-                    )
-                )
+                pass
+                # TheExcelErrorWB.Sheets['Match Differences'].WriteRow(
+                    # (
+                        # UKTSSA_No, MatchType,
+                        # RR_No,
+                        # Surname,
+                        # Forename,
+                        # Sex,
+                        # UKT_Date_Birth,
+                        # New_NHS_No,
+                        # None,
+                        # None,
+                        # None,
+                        # None,
+                        # None,
+                        # None
+                    # )
+                # )
             # Update the RR_No
             if RR_No is not None and RR_No != TheUKTPatient.RR_No and UpdateRecords:
                 TheUKTPatient.RR_No = RR_No
@@ -342,74 +344,86 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
 
                     if Transplant_Date != TheTransplant.Transplant_Date:
                         if TheTransplant.Transplant_Date is not None:
-                            TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Date", Transplant_Date, TheTransplant.Transplant_Date))
+                            pass
+                            # TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Date", Transplant_Date, TheTransplant.Transplant_Date))
                         if UpdateRecords:
                             TheTransplant.Transplant_Date = Transplant_Date
 
                     if Transplant_Type != TheTransplant.Transplant_Type:
                         if TheTransplant.Transplant_Type is not None:
-                            TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Type", Transplant_Type, TheTransplant.Transplant_Type))
+                            pass
+                            # TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Type", Transplant_Type, TheTransplant.Transplant_Type))
                         if UpdateRecords:
                             TheTransplant.Transplant_Type = Transplant_Type
 
                     if Transplant_Organ != TheTransplant.Transplant_Organ:
                         if TheTransplant.Transplant_Organ is not None:
-                            TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Organ", Transplant_Organ, TheTransplant.Transplant_Organ))
+                            pass
+                            # TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Organ", Transplant_Organ, TheTransplant.Transplant_Organ))
                         if UpdateRecords:
                             TheTransplant.Transplant_Organ = Transplant_Organ
 
                     # TODO: This might benefit from all being converted to ASCII
                     if Transplant_Unit != TheTransplant.Transplant_Unit:
                         if TheTransplant.Transplant_Unit is not None:
-                            TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Unit", Transplant_Unit, TheTransplant.Transplant_Unit))
+                            pass
+                            # TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Unit", Transplant_Unit, TheTransplant.Transplant_Unit))
                         if UpdateRecords:
                             TheTransplant.Transplant_Unit = Transplant_Unit
 
                     if UKT_Fail_Date != TheTransplant.UKT_Fail_Date:
                         if TheTransplant.UKT_Fail_Date is not None:
-                            TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "UKT Fail Date", UKT_Fail_Date, TheTransplant.UKT_Fail_Date))
+                            pass
+                            # TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "UKT Fail Date", UKT_Fail_Date, TheTransplant.UKT_Fail_Date))
                         if UpdateRecords:
                             TheTransplant.UKT_Fail_Date = UKT_Fail_Date
 
                     if Transplant_Sex != TheTransplant.Transplant_Sex:
                         if TheTransplant.Transplant_Sex is not None:
-                            TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Sex", Transplant_Sex, TheTransplant.Transplant_Sex))
+                            pass
+                            # TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Sex", Transplant_Sex, TheTransplant.Transplant_Sex))
                         if UpdateRecords:
                             TheTransplant.Transplant_Sex = Transplant_Sex
 
                     if Transplant_ID != TheTransplant.Transplant_ID:
                         if TheTransplant.Transplant_ID is not None:
-                            TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant ID", Transplant_ID, TheTransplant.Transplant_ID))
+                            pass
+                            # TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant ID", Transplant_ID, TheTransplant.Transplant_ID))
                         if UpdateRecords:
                             TheTransplant.Transplant_ID = Transplant_ID
 
                     if Transplant_Relationship != TheTransplant.Transplant_Relationship:
                         if TheTransplant.Transplant_Relationship is not None:
-                            TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Relationship", Transplant_Relationship, TheTransplant.Transplant_Relationship))
+                            pass
+                            # TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Transplant Relationship", Transplant_Relationship, TheTransplant.Transplant_Relationship))
                         if UpdateRecords:
                             TheTransplant.Transplant_Relationship = Transplant_Relationship
 
                     if Registration_Date != TheTransplant.Registration_Date:
                         if TheTransplant.Registration_Date is not None:
-                            TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Registration Date", Registration_Date, TheTransplant.Registration_Date))
+                            pass
+                            # TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Registration Date", Registration_Date, TheTransplant.Registration_Date))
                         if UpdateRecords:
                             TheTransplant.Registration_Date = Registration_Date
 
                     if Registration_Date_Type != TheTransplant.Registration_Date_Type:
                         if TheTransplant.Registration_Date_Type is not None:
-                            TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Registration Date Type", Registration_Date_Type, TheTransplant.Registration_Date_Type))
+                            pass
+                            # TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Registration Date Type", Registration_Date_Type, TheTransplant.Registration_Date_Type))
                         if UpdateRecords:
                             TheTransplant.Registration_Date_Type = Registration_Date_Type
 
                     if Registration_End_Date != TheTransplant.Registration_End_Date:
                         if TheTransplant.Registration_End_Date is not None:
+                            # pass
                             TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Registration End Date", Registration_End_Date, TheTransplant.Registration_End_Date))
                         if UpdateRecords:
                             TheTransplant.Registration_End_Date = Registration_End_Date
 
                     if Registration_End_Status != TheTransplant.Registration_End_Status:
                         if TheTransplant.Registration_End_Status is not None:
-                            TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Registration End Status", Registration_End_Status, TheTransplant.Registration_End_Status))
+                            pass
+                            # TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Registration End Status", Registration_End_Status, TheTransplant.Registration_End_Status))
                         if UpdateRecords:
                             TheTransplant.Registration_End_Status = Registration_End_Status
 
