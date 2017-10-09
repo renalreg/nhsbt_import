@@ -179,43 +179,43 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
 
             # TODO: I don't think this should be writing rows in both cases.
             if TheRRPatient is not None:
-                pass 
+                pass
                 # TheExcelErrorWB.Sheets['Match Differences'].WriteRow(
-                    # (
-                        # UKTSSA_No,
-                        # MatchType,
-                        # RR_No,
-                        # Surname,
-                        # Forename,
-                        # Sex,
-                        # UKT_Date_Birth,
-                        # New_NHS_No,
-                        # TheRRPatient.RR_No,
-                        # TheRRPatient.Surname,
-                        # TheRRPatient.Forename,
-                        # TheRRPatient.Sex,
-                        # TheRRPatient.Date_Birth,
-                        # TheRRPatient.New_NHS_No
-                    # )
+                # (
+                # UKTSSA_No,
+                # MatchType,
+                # RR_No,
+                # Surname,
+                # Forename,
+                # Sex,
+                # UKT_Date_Birth,
+                # New_NHS_No,
+                # TheRRPatient.RR_No,
+                # TheRRPatient.Surname,
+                # TheRRPatient.Forename,
+                # TheRRPatient.Sex,
+                # TheRRPatient.Date_Birth,
+                # TheRRPatient.New_NHS_No
+                # )
                 # )
             else:
                 pass
                 # TheExcelErrorWB.Sheets['Match Differences'].WriteRow(
-                    # (
-                        # UKTSSA_No, MatchType,
-                        # RR_No,
-                        # Surname,
-                        # Forename,
-                        # Sex,
-                        # UKT_Date_Birth,
-                        # New_NHS_No,
-                        # None,
-                        # None,
-                        # None,
-                        # None,
-                        # None,
-                        # None
-                    # )
+                # (
+                # UKTSSA_No, MatchType,
+                # RR_No,
+                # Surname,
+                # Forename,
+                # Sex,
+                # UKT_Date_Birth,
+                # New_NHS_No,
+                # None,
+                # None,
+                # None,
+                # None,
+                # None,
+                # None
+                # )
                 # )
             # Update the RR_No
             if RR_No is not None and RR_No != TheUKTPatient.RR_No and UpdateRecords:
