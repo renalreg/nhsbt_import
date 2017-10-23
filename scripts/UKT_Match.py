@@ -7,7 +7,7 @@ from rr_common.general_exceptions import Error
 from rr_common.nhs_numbers import RR_Validate_NHS_No
 from rr_ukt_import.dateutils import convert_datetime_string_to_datetime
 from datetime import datetime
-from rr.utils.command_line import add_db_arguments
+from rr.utils.command_line import DBConnectionInfo
 import logging
 import logging.config
 import yaml
@@ -37,7 +37,7 @@ def main():
     logging.config.dictConfig(yaml.load(open('logconf.yaml', 'r')))
     log = logging.getLogger('ukt_match')
     parser = argparse.ArgumentParser(description="ukt_match")
-    add_db_arguments(parser)
+    DBConnectionInfo.add_db_arguments(parser)
     parser.add_argument('--output', type=str, help="Specify alternate output")
     args = parser.parse_args()
     datasource = 'RR-SQL-Live'
