@@ -421,9 +421,6 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                             TheTransplant.Registration_End_Date = Registration_End_Date
 
                     if Registration_End_Status != TheTransplant.Registration_End_Status:
-                        if TheTransplant.Registration_End_Status is not None:
-                            pass
-                            # TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow((UKTSSA_No, Registration_ID, "Registration End Status", Registration_End_Status, TheTransplant.Registration_End_Status))
                         if UpdateRecords:
                             TheTransplant.Registration_End_Status = Registration_End_Status
 

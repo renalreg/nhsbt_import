@@ -1,5 +1,7 @@
 import csv
 import time
+import os
+import sys
 
 from rr_database.sqlserver import SQLServerDatabase
 from rr_common.rr_general_utils import rr_str
@@ -13,9 +15,9 @@ import logging.config
 import yaml
 import argparse
 
-PAEDS_CSV = r"Q:\NHSBT\2017-02\1 Complete Database.csv"
-INPUT_FILENAME = r"Q:\NHSBT\2017-02\UKTR_DATA_12JAN2017.csv"
-OUTPUT_FILENAME = r"Q:\NHSBT\2017-02\UKTR_DATA_12JAN2017_MATCHED.csv"
+PAEDS_CSV = "1 Complete Database.csv"
+INPUT_FILENAME = "UKTR_DATA_12JAN2017.csv"
+OUTPUT_FILENAME = "UKTR_DATA_12JAN2017_MATCHED.csv"
 
 
 def create_patients_table(db):
@@ -38,16 +40,17 @@ def main():
     log = logging.getLogger('ukt_match')
     parser = argparse.ArgumentParser(description="ukt_match")
     DBConnectionInfo.add_db_arguments(parser)
+    parser.add_argument('--root', type=str, help="Specify Root Folder", required=True)
+    parser.add_argument('--date', type=str, help="ddMMMYYY", required=True)
     parser.add_argument('--output', type=str, help="Specify alternate output")
     args = parser.parse_args()
+    root = args.root
     datasource = 'RR-SQL-Live'
     catalog = 'RenalReg'
     if (args.datasource):
         datasource = args.datasource
     if (args.catalog):
         catalog = args.catalog
-    if (args.output):
-        OUTPUT_FILENAME = args.output
     db = SQLServerDatabase.connect(data_source=datasource, database=catalog)
     create_patients_table(db)
     rr_no_postcode_map = {}
@@ -56,8 +59,13 @@ def main():
     hsc_no_map = {}
     uktssa_no_map = {}
 
-    log.info("importing paeds patients into the db...")
-    import_paeds_from_csv(db, PAEDS_CSV, rr_no_postcode_map)
+    paeds_csv = os.path.join(args.root, PAEDS_CSV)
+    if os.path.exists(paeds_csv):
+        log.info("importing paeds patients from {} into the db...".format(paeds_csv))
+        import_paeds_from_csv(db, paeds_csv, rr_no_postcode_map)
+    else:
+        log.critical("{} does not exist".format(paeds_csv))
+        sys.exit(1)
     log.info("building postcode map...")
     populate_rr_no_postcode_map(db, rr_no_postcode_map)
     log.info("building identifier map...")
@@ -70,9 +78,16 @@ def main():
         "PREVIOUS_MATCH", "UKTR_RSURNAME", "UKTR_RFORENAME", "UKTR_RDOB", "UKTR_RSEX", "UKTR_RPOSTCODE", "UKTR_RNHS_NO",
     ]
     rr_columns = ["RR_ID", "RR_SURNAME", "RR_FORENAME", "RR_DOB", "RR_SEX", "RR_POSTCODE", "RR_NHS_NO"]
-
-    reader = csv.reader(open(INPUT_FILENAME, "rb"))
-    writer = csv.writer(open(OUTPUT_FILENAME, "wb"))
+    input_filename = os.path.join(root, "UKTR_DATA_{}.csv".format(args.date))
+    if not os.path.exists(input_filename):
+        log.critical("Input filename {} does not exist".format(input_filename))
+        sys.exit(1)
+    reader = csv.reader(open(input_filename, "rb"))
+    #
+    if args.output:
+        root = os.path.expanduser(args.output)
+    output_filename = os.path.join(root, "UKTR_DATA_{}_MATCHED.csv".format(args.date))
+    writer = csv.writer(open(output_filename, "wb"))
 
     columns = next(reader)
     check_columns(columns, ukt_columns)
@@ -222,18 +237,18 @@ def main():
 
             if match_rr_no:
                 # But matched this time
-                log.info("NEW_MATCH", "UKTR_ID=%d" % uktssa_no, "RR_NO=%d" % match_rr_no)
+                log.info("NEW_MATCH: UKTR_ID={} RR_NO={}".format(uktssa_no, match_rr_no))
         elif match_rr_no is None:
             # Didn't match this time
             prev_match = 3
-            log.info("USED_TO_MATCH", "UKTR_ID=%d" % uktssa_no, "PREV_RR_NO=%d" % prev_match_rr_no)
+            log.info("USED_TO_MATCH: UKTR_ID={} PREV_RR_NO={}".format(uktssa_no, prev_match_rr_no))
         elif prev_match_rr_no == match_rr_no:
             # Matched to the same patient
             prev_match = 1
         else:
             # Matched to a different patient
             prev_match = 2
-            log.info("DIFFERENT_MATCH", "UKTR_ID=%d" % uktssa_no, "PREV_RR_NO=%d" % prev_match_rr_no, "RR_NO=%d" % match_rr_no)
+            log.info("DIFFERENT_MATCH: UKTR_ID={} PREV_RR_NO={} RR_NO={}".format(uktssa_no, prev_match_rr_no, match_rr_no))
 
         row[8] = prev_match
 
