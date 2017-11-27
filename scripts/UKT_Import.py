@@ -149,74 +149,43 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                 if UpdateRecords:
                     TheUKTPatient.UKT_Date_Birth = UKT_Date_Birth
 
+            MatchType = None
+            # RR_No here comes from the matched file
             if RR_No != TheUKTPatient.RR_No and (TheUKTPatient.RR_No is not None or RR_No is not None):
-                MatchType = None
-            TheRRPatient = None
-            if RR_No is not None and TheUKTPatient.RR_No is None:
-                MatchType = "UKT Only Match"
+                MatchType = "Match Difference"
+            elif RR_No is not None and TheUKTPatient.RR_No is None:
+                # This should never happen as we now can't load the unmatched records.
+                MatchType = "New Match"
+     
+            try:
+                TheRRPatient = Session.query(RR_Patient).filter_by(RR_No=RR_No).all()[0]
+            except:
                 try:
-                    TheRRPatient = Session.query(RR_Patient).filter_by(RR_No=RR_No).all()[0]
+                    TheRRPatient = Session.query(RR_Deleted_Patient).filter_by(RR_No=RR_No).all()[0]
+                    MatchType = "Match to Deleted Patient"
                 except:
-                    try:
-                        TheRRPatient = Session.query(RR_Deleted_Patient).filter_by(RR_No=RR_No).all()[0]
-                        MatchType = "UKT Match to Deleted Patient"
-                    except:
-                        print "Unable to find", RR_No, "in the database"
-            else:
-                try:
-                    TheRRPatient = Session.query(RR_Patient).filter_by(RR_No=TheUKTPatient.RR_No).all()[0]
-                except:
-                    try:
-                        TheRRPatient = Session.query(RR_Deleted_Patient).filter_by(RR_No=TheUKTPatient.RR_No).all()[0]
-                        MatchType = "Match to Deleted Patient"
-                    except:
-                        print "Unable to find", TheUKTPatient.RR_No, "in the database"
-                else:
-                    if RR_No is None:
-                        MatchType = "New Match"
-                    else:
-                        MatchType = "Match Difference"
+                    MatchType = "Match to Patient not in Database"
 
-            # TODO: I don't think this should be writing rows in both cases.
-            if TheRRPatient is not None:
-                # TheExcelErrorWB.Sheets['Match Differences'].WriteRow(
-                # (
-                # UKTSSA_No,
-                # MatchType,
-                # RR_No,
-                # Surname,
-                # Forename,
-                # Sex,
-                # UKT_Date_Birth,
-                # New_NHS_No,
-                # TheRRPatient.RR_No,
-                # TheRRPatient.Surname,
-                # TheRRPatient.Forename,
-                # TheRRPatient.Sex,
-                # TheRRPatient.Date_Birth,
-                # TheRRPatient.New_NHS_No
-                # )
-                # )
-                pass
-            else:
-                # TheExcelErrorWB.Sheets['Match Differences'].WriteRow(
-                # (
-                # UKTSSA_No, MatchType,
-                # RR_No,
-                # Surname,
-                # Forename,
-                # Sex,
-                # UKT_Date_Birth,
-                # New_NHS_No,
-                # None,
-                # None,
-                # None,
-                # None,
-                # None,
-                # None
-                # )
-                # )
-                pass
+            if MatchType is not None:
+                TheExcelErrorWB.Sheets['Match Differences'].WriteRow(
+                (
+                UKTSSA_No,
+                MatchType,
+                RR_No,
+                Surname,
+                Forename,
+                Sex,
+                UKT_Date_Birth,
+                New_NHS_No,
+                TheRRPatient.RR_No,
+                TheRRPatient.Surname,
+                TheRRPatient.Forename,
+                TheRRPatient.Sex,
+                TheRRPatient.Date_Birth,
+                TheRRPatient.New_NHS_No
+                )
+                )
+
             # Update the RR_No
             if RR_No is not None and RR_No != TheUKTPatient.RR_No and UpdateRecords:
                 TheUKTPatient.RR_No = RR_No
