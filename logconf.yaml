@@ -11,16 +11,26 @@ handlers:
         formatter: simple
         stream: ext://sys.stdout
 
-    file:
+    ukt_match_file:
         class: logging.FileHandler
         level: DEBUG
         formatter: simple
         filename: logs/ukt_match.log
+        
+    ukt_import_file:
+        class: logging.FileHandler
+        level: DEBUG
+        formatter: simple
+        filename: logs/ukt_import.log
 
 loggers:
   ukt_match:
-    level: DEBUG
-    handlers: [console, file]
+    level: INFO
+    handlers: [console, ukt_match_file]
+
+  ukt_import:
+    level: INFO
+    handlers: [console, ukt_import_file]
 
 root:
     level: DEBUG
