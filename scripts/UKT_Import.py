@@ -158,11 +158,11 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
             MatchType = "New Match"
         try:
             TheRRPatient = Session.query(RR_Patient).filter_by(RR_No=RR_No).all()[0]
-        except:
+        except Exception:
             try:
                 TheRRPatient = Session.query(RR_Deleted_Patient).filter_by(RR_No=RR_No).all()[0]
                 MatchType = "Match to Deleted Patient"
-            except:
+            except Exception:
                 MatchType = "Match to Patient not in Database"
 
         if MatchType is not None:
@@ -221,172 +221,170 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
 
         Registration_Date = Row[x]
         if Registration_Date in ('', None):
-            Registration_Date = None
+            log.debug("No registration date for {}".format(Registration_ID))
+            continue
+        Registration_Date = datetime.datetime.strptime(Registration_Date, date_format).date()
+
+        Registration_Date_Type = Row[x + 1]
+        if Registration_Date_Type in ('', None):
+            Registration_Date_Type = ''
+
+        Registration_End_Status = Row[x + 2]
+        if Registration_End_Status in ('', None):
+            Registration_End_Status = ''
+
+        Transplant_Consideration = Row[x + 3]
+        if Transplant_Consideration in ('', None):
+            Transplant_Consideration = ''
+
+        Registration_End_Date = Row[x + 4]
+        if Registration_End_Date in ('', None):
+            Registration_End_Date = None
         else:
-            Registration_Date = datetime.datetime.strptime(Registration_Date, date_format).date()
+            Registration_End_Date = datetime.datetime.strptime(Registration_End_Date, date_format).date()
 
-        if Registration_Date is not None:
+        Transplant_ID = Row[x + 5]
+        if Transplant_ID in ('', None):
+            Transplant_ID = None
+        else:
+            Transplant_ID = int(Transplant_ID)
 
-            Registration_Date_Type = Row[x + 1]
-            if Registration_Date_Type in ('', None):
-                Registration_Date_Type = ''
+        TransplantList.append(Registration_ID)
 
-            Registration_End_Status = Row[x + 2]
-            if Registration_End_Status in ('', None):
-                Registration_End_Status = ''
+        Transplant_Date = Row[x + 6]
+        if Transplant_Date in ('', None):
+            Transplant_Date = None
+        else:
+            try:
+                Transplant_Date = datetime.datetime.strptime(Transplant_Date, date_format).date()
+            except Exception:
+                raise
 
-            Transplant_Consideration = Row[x + 3]
-            if Transplant_Consideration in ('', None):
-                Transplant_Consideration = ''
+        Transplant_Type = Row[x + 7]
+        if Transplant_Type in ('', None):
+            Transplant_Type = ''
 
-            Registration_End_Date = Row[x + 4]
-            if Registration_End_Date in ('', None):
-                Registration_End_Date = None
-            else:
-                Registration_End_Date = datetime.datetime.strptime(Registration_End_Date, date_format).date()
+        Transplant_Sex = Row[x + 8]
+        if Transplant_Sex in ('', None):
+            Transplant_Sex = ''
 
-            Transplant_ID = Row[x + 5]
-            if Transplant_ID in ('', None):
-                Transplant_ID = None
-            else:
-                Transplant_ID = int(Transplant_ID)
+        Transplant_Relationship = Row[x + 9]
+        if Transplant_Relationship in ('', None):
+            Transplant_Relationship = ''
 
-            TransplantList.append(Registration_ID)
+        Transplant_Organ = Row[x + 10]
+        if Transplant_Organ in ('', None):
+            Transplant_Organ = ''
 
-            Transplant_Date = Row[x + 6]
-            if Transplant_Date in ('', None):
-                Transplant_Date = None
-            else:
-                try:
-                    Transplant_Date = datetime.datetime.strptime(Transplant_Date, date_format).date()
-                except Exception:
-                    raise
+        Transplant_Unit = Row[x + 11]
+        if Transplant_Unit in ('', None):
+            Transplant_Unit = ''
 
-            Transplant_Type = Row[x + 7]
-            if Transplant_Type in ('', None):
-                Transplant_Type = ''
+        UKT_Fail_Date = Row[x + 12]
+        if UKT_Fail_Date in ('', None):
+            UKT_Fail_Date = None
+        else:
+            UKT_Fail_Date = datetime.datetime.strptime(UKT_Fail_Date, date_format).date()
 
-            Transplant_Sex = Row[x + 8]
-            if Transplant_Sex in ('', None):
-                Transplant_Sex = ''
+        Transplant_Dialysis = Row[x + 13]
+        if Transplant_Dialysis in ('', None):
+            Transplant_Dialysis = ''
 
-            Transplant_Relationship = Row[x + 9]
-            if Transplant_Relationship in ('', None):
-                Transplant_Relationship = ''
+        CIT_Mins = Row[x + 14]
+        if CIT_Mins in ('', None):
+            CIT_Mins = ''
 
-            Transplant_Organ = Row[x + 10]
-            if Transplant_Organ in ('', None):
-                Transplant_Organ = ''
+        HLA_Mismatch = Row[x + 15]
+        if HLA_Mismatch in ('', None):
+            HLA_Mismatch = ''
 
-            Transplant_Unit = Row[x + 11]
-            if Transplant_Unit in ('', None):
-                Transplant_Unit = ''
+        Cause_Of_Failure = Row[x + 16]
+        if Cause_Of_Failure in ('', None):
+            Cause_Of_Failure = ''
 
-            UKT_Fail_Date = Row[x + 12]
-            if UKT_Fail_Date in ('', None):
-                UKT_Fail_Date = None
-            else:
-                UKT_Fail_Date = datetime.datetime.strptime(UKT_Fail_Date, date_format).date()
+        Cause_Of_Failure_Text = Row[x + 17]
+        if Cause_Of_Failure_Text in('', None):
+            Cause_Of_Failure_Text = ''
 
-            Transplant_Dialysis = Row[x + 13]
-            if Transplant_Dialysis in ('', None):
-                Transplant_Dialysis = ''
+        Results = Session.query(UKT_Transplant).filter_by(Registration_ID=Registration_ID).all()
 
-            CIT_Mins = Row[x + 14]
-            if CIT_Mins in ('', None):
-                CIT_Mins = ''
+        if len(Results) == 1:
 
-            HLA_Mismatch = Row[x + 15]
-            if HLA_Mismatch in ('', None):
-                HLA_Mismatch = ''
+            TheTransplant = Results[0]
+            if RUNSCRIPT:
+                log.info("Updating record")
+                if Transplant_Date != TheTransplant.Transplant_Date:
+                    TheTransplant.Transplant_Date = Transplant_Date
 
-            Cause_Of_Failure = Row[x + 16]
-            if Cause_Of_Failure in ('', None):
-                Cause_Of_Failure = ''
+                if Transplant_Type != TheTransplant.Transplant_Type:
+                    TheTransplant.Transplant_Type = Transplant_Type
 
-            Cause_Of_Failure_Text = Row[x + 17]
-            if Cause_Of_Failure_Text in('', None):
-                Cause_Of_Failure_Text = ''
+                if Transplant_Organ != TheTransplant.Transplant_Organ:
+                    TheTransplant.Transplant_Organ = Transplant_Organ
 
-            Results = Session.query(UKT_Transplant).filter_by(Registration_ID=Registration_ID).all()
+                # TODO: This might benefit from all being converted to ASCII
+                if Transplant_Unit != TheTransplant.Transplant_Unit:
+                    TheTransplant.Transplant_Unit = Transplant_Unit
 
-            if len(Results) == 1:
+                if UKT_Fail_Date != TheTransplant.UKT_Fail_Date:
+                    TheTransplant.UKT_Fail_Date = UKT_Fail_Date
 
-                TheTransplant = Results[0]
-                if RUNSCRIPT:
-                    log.info("Updating record")
-                    if Transplant_Date != TheTransplant.Transplant_Date:
-                        TheTransplant.Transplant_Date = Transplant_Date
+                if Transplant_Sex != TheTransplant.Transplant_Sex:
+                    TheTransplant.Transplant_Sex = Transplant_Sex
 
-                    if Transplant_Type != TheTransplant.Transplant_Type:
-                        TheTransplant.Transplant_Type = Transplant_Type
+                if Transplant_ID != TheTransplant.Transplant_ID:
+                    TheTransplant.Transplant_ID = Transplant_ID
 
-                    if Transplant_Organ != TheTransplant.Transplant_Organ:
-                        TheTransplant.Transplant_Organ = Transplant_Organ
+                if Transplant_Relationship != TheTransplant.Transplant_Relationship:
+                    TheTransplant.Transplant_Relationship = Transplant_Relationship
 
-                    # TODO: This might benefit from all being converted to ASCII
-                    if Transplant_Unit != TheTransplant.Transplant_Unit:
-                        TheTransplant.Transplant_Unit = Transplant_Unit
+                if Registration_Date != TheTransplant.Registration_Date:
+                    TheTransplant.Registration_Date = Registration_Date
 
-                    if UKT_Fail_Date != TheTransplant.UKT_Fail_Date:
-                        TheTransplant.UKT_Fail_Date = UKT_Fail_Date
+                if Registration_Date_Type != TheTransplant.Registration_Date_Type:
+                    TheTransplant.Registration_Date_Type = Registration_Date_Type
 
-                    if Transplant_Sex != TheTransplant.Transplant_Sex:
-                        TheTransplant.Transplant_Sex = Transplant_Sex
-
-                    if Transplant_ID != TheTransplant.Transplant_ID:
-                        TheTransplant.Transplant_ID = Transplant_ID
-
-                    if Transplant_Relationship != TheTransplant.Transplant_Relationship:
-                        TheTransplant.Transplant_Relationship = Transplant_Relationship
-
-                    if Registration_Date != TheTransplant.Registration_Date:
-                        TheTransplant.Registration_Date = Registration_Date
-
-                    if Registration_Date_Type != TheTransplant.Registration_Date_Type:
-                        TheTransplant.Registration_Date_Type = Registration_Date_Type
-
-                    if Registration_End_Date != TheTransplant.Registration_End_Date:
-                        if TheTransplant.Registration_End_Date is not None:
-                            TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow(
-                                (
-                                    UKTSSA_No,
-                                    Registration_ID,
-                                    "Registration End Date",
-                                    Registration_End_Date,
-                                    TheTransplant.Registration_End_Date
-                                )
+                if Registration_End_Date != TheTransplant.Registration_End_Date:
+                    if TheTransplant.Registration_End_Date is not None:
+                        TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow(
+                            (
+                                UKTSSA_No,
+                                Registration_ID,
+                                "Registration End Date",
+                                Registration_End_Date,
+                                TheTransplant.Registration_End_Date
                             )
-                        TheTransplant.Registration_End_Date = Registration_End_Date
+                        )
+                    TheTransplant.Registration_End_Date = Registration_End_Date
 
-                    if Registration_End_Status != TheTransplant.Registration_End_Status:
-                        TheTransplant.Registration_End_Status = Registration_End_Status
+                if Registration_End_Status != TheTransplant.Registration_End_Status:
+                    TheTransplant.Registration_End_Status = Registration_End_Status
 
-            else:
-                if RUNSCRIPT:
-                    log.info("Add record to database")
-                    TheTransplant = UKT_Transplant(
-                        UKTSSA_No=UKTSSA_No,
-                        Transplant_ID=Transplant_ID,
-                        Transplant_Date=Transplant_Date,
-                        Transplant_Type=Transplant_Type,
-                        Transplant_Organ=Transplant_Organ,
-                        Transplant_Unit=Transplant_Unit,
-                        UKT_Fail_Date=UKT_Fail_Date,
-                        Registration_ID=Registration_ID,
-                        Registration_Date=Registration_Date,
-                        Registration_Date_Type=Registration_Date_Type,
-                        Registration_End_Date=Registration_End_Date,
-                        Registration_End_Status=Registration_End_Status,
-                        Transplant_Consideration=Transplant_Consideration,
-                        Transplant_Dialysis=Transplant_Dialysis,
-                        Transplant_Relationship=Transplant_Relationship,
-                        Transplant_Sex=Transplant_Sex,
-                        Cause_Of_Failure=Cause_Of_Failure,
-                        Cause_Of_Failure_Text=Cause_Of_Failure_Text,
-                        CIT_Mins=CIT_Mins, HLA_Mismatch=HLA_Mismatch
-                    )
-                    Session.add(TheTransplant)
+        else:
+            if RUNSCRIPT:
+                log.info("Add record to database")
+                TheTransplant = UKT_Transplant(
+                    UKTSSA_No=UKTSSA_No,
+                    Transplant_ID=Transplant_ID,
+                    Transplant_Date=Transplant_Date,
+                    Transplant_Type=Transplant_Type,
+                    Transplant_Organ=Transplant_Organ,
+                    Transplant_Unit=Transplant_Unit,
+                    UKT_Fail_Date=UKT_Fail_Date,
+                    Registration_ID=Registration_ID,
+                    Registration_Date=Registration_Date,
+                    Registration_Date_Type=Registration_Date_Type,
+                    Registration_End_Date=Registration_End_Date,
+                    Registration_End_Status=Registration_End_Status,
+                    Transplant_Consideration=Transplant_Consideration,
+                    Transplant_Dialysis=Transplant_Dialysis,
+                    Transplant_Relationship=Transplant_Relationship,
+                    Transplant_Sex=Transplant_Sex,
+                    Cause_Of_Failure=Cause_Of_Failure,
+                    Cause_Of_Failure_Text=Cause_Of_Failure_Text,
+                    CIT_Mins=CIT_Mins, HLA_Mismatch=HLA_Mismatch
+                )
+                Session.add(TheTransplant)
 
 if RUNSCRIPT:
     Session.commit()
