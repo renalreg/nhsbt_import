@@ -325,7 +325,7 @@ def import_paeds_from_csv(db, filename, rr_no_postcode_map):
             else:
                 try:
                     sex = int(sex)
-                except:
+                except Exception:
                     pass
 
                 if sex not in [1, 2, 8]:
