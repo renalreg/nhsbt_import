@@ -313,36 +313,21 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
             TheTransplant = Results[0]
             if RUNSCRIPT:
                 log.info("Updating record")
-                if Transplant_Date != TheTransplant.Transplant_Date:
-                    TheTransplant.Transplant_Date = Transplant_Date
 
-                if Transplant_Type != TheTransplant.Transplant_Type:
-                    TheTransplant.Transplant_Type = Transplant_Type
-
-                if Transplant_Organ != TheTransplant.Transplant_Organ:
-                    TheTransplant.Transplant_Organ = Transplant_Organ
-
-                # TODO: This might benefit from all being converted to ASCII
-                if Transplant_Unit != TheTransplant.Transplant_Unit:
-                    TheTransplant.Transplant_Unit = Transplant_Unit
-
-                if UKT_Fail_Date != TheTransplant.UKT_Fail_Date:
-                    TheTransplant.UKT_Fail_Date = UKT_Fail_Date
-
-                if Transplant_Sex != TheTransplant.Transplant_Sex:
-                    TheTransplant.Transplant_Sex = Transplant_Sex
-
-                if Transplant_ID != TheTransplant.Transplant_ID:
-                    TheTransplant.Transplant_ID = Transplant_ID
-
-                if Transplant_Relationship != TheTransplant.Transplant_Relationship:
-                    TheTransplant.Transplant_Relationship = Transplant_Relationship
+                # No need to update Registration ID as it was used
+                # for matching. Or UKTSSA_No as they're related.
 
                 if Registration_Date != TheTransplant.Registration_Date:
                     TheTransplant.Registration_Date = Registration_Date
 
                 if Registration_Date_Type != TheTransplant.Registration_Date_Type:
                     TheTransplant.Registration_Date_Type = Registration_Date_Type
+
+                if Registration_End_Status != TheTransplant.Registration_End_Status:
+                    TheTransplant.Registration_End_Status = Registration_End_Status
+
+                if Transplant_Consideration != TheTransplant.Transplant_Consideration:
+                    TheTransplant.Transplant_Consideration = Transplant_Consideration
 
                 if Registration_End_Date != TheTransplant.Registration_End_Date:
                     if TheTransplant.Registration_End_Date is not None:
@@ -357,32 +342,69 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                         )
                     TheTransplant.Registration_End_Date = Registration_End_Date
 
-                if Registration_End_Status != TheTransplant.Registration_End_Status:
-                    TheTransplant.Registration_End_Status = Registration_End_Status
+                if Transplant_ID != TheTransplant.Transplant_ID:
+                    TheTransplant.Transplant_ID = Transplant_ID
 
+                if Transplant_Date != TheTransplant.Transplant_Date:
+                    TheTransplant.Transplant_Date = Transplant_Date
+
+                if Transplant_Type != TheTransplant.Transplant_Type:
+                    TheTransplant.Transplant_Type = Transplant_Type
+
+                if Transplant_Sex != TheTransplant.Transplant_Sex:
+                    TheTransplant.Transplant_Sex = Transplant_Sex
+
+                if Transplant_Relationship != TheTransplant.Transplant_Relationship:
+                    TheTransplant.Transplant_Relationship = Transplant_Relationship
+
+                if Transplant_Organ != TheTransplant.Transplant_Organ:
+                    TheTransplant.Transplant_Organ = Transplant_Organ
+
+                # TODO: This might benefit from all being converted to ASCII
+                if Transplant_Unit != TheTransplant.Transplant_Unit:
+                    TheTransplant.Transplant_Unit = Transplant_Unit
+
+                if UKT_Fail_Date != TheTransplant.UKT_Fail_Date:
+                    TheTransplant.UKT_Fail_Date = UKT_Fail_Date
+
+                if Transplant_Dialysis != TheTransplant.Transplant_Dialysis:
+                    TheTransplant.Transplant_Dialysis = Transplant_Dialysis
+
+                if CIT_Mins != TheTransplant.CIT_Mins:
+                    TheTransplant.CIT_Mins = CIT_Mins
+
+                if HLA_Mismatch != TheTransplant.HLA_Mismatch:
+                    TheTransplant.HLA_Mismatch = HLA_Mismatch
+
+                if Cause_Of_Failure != TheTransplant.Cause_Of_Failure:
+                    TheTransplant.Cause_Of_Failure = Cause_Of_Failure
+
+                if Cause_Of_Failure_Text != TheTransplant.Cause_Of_Failure_Text:
+                    TheTransplant.Cause_Of_Failure_Text = Cause_Of_Failure_Text
         else:
             if RUNSCRIPT:
                 log.info("Add record to database")
                 TheTransplant = UKT_Transplant(
                     UKTSSA_No=UKTSSA_No,
-                    Transplant_ID=Transplant_ID,
-                    Transplant_Date=Transplant_Date,
-                    Transplant_Type=Transplant_Type,
-                    Transplant_Organ=Transplant_Organ,
-                    Transplant_Unit=Transplant_Unit,
-                    UKT_Fail_Date=UKT_Fail_Date,
                     Registration_ID=Registration_ID,
                     Registration_Date=Registration_Date,
                     Registration_Date_Type=Registration_Date_Type,
-                    Registration_End_Date=Registration_End_Date,
                     Registration_End_Status=Registration_End_Status,
                     Transplant_Consideration=Transplant_Consideration,
-                    Transplant_Dialysis=Transplant_Dialysis,
-                    Transplant_Relationship=Transplant_Relationship,
+                    Registration_End_Date=Registration_End_Date,
+                    Transplant_ID=Transplant_ID,
+                    Transplant_Date=Transplant_Date,
+                    Transplant_Type=Transplant_Type,
                     Transplant_Sex=Transplant_Sex,
+                    Transplant_Relationship=Transplant_Relationship,
+                    Transplant_Organ=Transplant_Organ,
+                    Transplant_Unit=Transplant_Unit,
+                    UKT_Fail_Date=UKT_Fail_Date,
+                    Transplant_Dialysis=Transplant_Dialysis,
+                    CIT_Mins=CIT_Mins,
+                    HLA_Mismatch=HLA_Mismatch,
                     Cause_Of_Failure=Cause_Of_Failure,
-                    Cause_Of_Failure_Text=Cause_Of_Failure_Text,
-                    CIT_Mins=CIT_Mins, HLA_Mismatch=HLA_Mismatch
+                    Cause_Of_Failure_Text=Cause_Of_Failure_Text
                 )
                 Session.add(TheTransplant)
 
