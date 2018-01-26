@@ -1,5 +1,5 @@
 import csv
-import datetime
+from datetime import datetime
 import logging
 import logging.config
 import yaml
@@ -13,6 +13,15 @@ from sqlalchemy.orm import sessionmaker
 from UKT_Models import UKT_Patient, UKT_Transplant
 from RR_Models import RR_Patient, RR_Deleted_Patient
 from rr_reports import ExcelLib
+
+is_python3 = sys.version_info.major == 3
+if is_python3:
+    unicode = str
+
+try:
+    xrange
+except NameError:
+    xrange = range
 
 logging.config.dictConfig(yaml.load(open('logconf.yaml', 'r')))
 log = logging.getLogger('ukt_import')
@@ -34,7 +43,8 @@ Engine = create_engine("mssql+pyodbc://rr-sql-live/renalreg?driver=SQL+Server+Na
 Cursor = Engine.connect()
 
 # TODO: Update the comments in this to make sure they match up with the new way of working.
-# TODO: Put something in this to ignore 9999xxxxx Paed patients. Note that 20 (but only 20?) got into the database last time this was run. This is puzzling.
+# TODO: Put something in this to ignore 9999xxxxx Paed patients.
+# Note that 20 (but only 20?) got into the database last time this was run. This is puzzling.
 
 # TODO: This is not handling all the recent fields comprehensively.
 
@@ -43,7 +53,8 @@ Session = SessionMaker()
 
 InputCSVReader = csv.reader(open(input_file, 'rb'))
 
-# Note: This script does not do matching itself. Run to create the new patient records, run the matching PL/SQL procedure then re-run to get the complete report
+# Note: This script does not do matching itself. Run to create the new patient records,
+# run the matching PL/SQL procedure then re-run to get the complete report
 # TODO: Check what that comment means
 
 TheExcelErrorWB = ExcelLib.ExcelWB()
@@ -67,8 +78,14 @@ TheExcelErrorWB.AddSheet(
     ),
     0
 )
-TheExcelErrorWB.AddSheet("Patient Field Differences", ("UKTSSA_No", "Field", "File Value", "Previous Import Value"), 0)
-TheExcelErrorWB.AddSheet('Transplant Field Differences', ("UKTSSA_No", "Transplant_ID", "Field", "File Value", "Previous Import Value"), 0)
+TheExcelErrorWB.AddSheet(
+    "Patient Field Differences",
+    ("UKTSSA_No", "Field", "File Value", "Previous Import Value"),
+    0)
+TheExcelErrorWB.AddSheet(
+    'Transplant Field Differences',
+    ("UKTSSA_No", "Transplant_ID", "Field", "File Value", "Previous Import Value"),
+    0)
 TheExcelErrorWB.AddSheet("Invalid Postcodes", ("UKTSSA_No", "Message", "Value"), 0)
 TheExcelErrorWB.AddSheet("Invalid NHS Numbers", ("UKTSSA_No", "Value"), 0)
 TheExcelErrorWB.AddSheet("Missing Patients", ("UKTSSA_No", ), 0)
@@ -94,7 +111,8 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
         if isinstance(Row[i], str) or isinstance(Row[i], unicode):
             Row[i] = Row[i].decode('utf-8', 'ignore')
 
-    # Empty Strings are needed in places here as that's what SQLAlachemy appears to be returning as Null for String fields
+    # Empty Strings are needed in places here as that's what SQLAlachemy
+    # appears to be returning as Null for String fields
 
     UKTSSA_No = int(Row[0].strip())
     if UKTSSA_No in (0, ''):
@@ -123,7 +141,7 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
     if UKT_Date_Death in ('', 0):
         UKT_Date_Death = None
     else:
-        UKT_Date_Death = datetime.datetime.strptime(UKT_Date_Death, date_format).date()
+        UKT_Date_Death = datetime.strptime(UKT_Date_Death, date_format).date()
 
     UKT_Date_Birth = None
 
@@ -184,7 +202,6 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
                     TheRRPatient.New_NHS_No
                 )
             )
-
         # Update the RR_No
         if RR_No is not None and RR_No != TheUKTPatient.RR_No and RUNSCRIPT:
             TheUKTPatient.RR_No = RR_No
@@ -223,7 +240,7 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
         if Registration_Date in ('', None):
             log.debug("No registration date for {}".format(Registration_ID))
             continue
-        Registration_Date = datetime.datetime.strptime(Registration_Date, date_format).date()
+        Registration_Date = datetime.strptime(Registration_Date, date_format).date()
 
         Registration_Date_Type = Row[x + 1]
         if Registration_Date_Type in ('', None):
@@ -241,7 +258,7 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
         if Registration_End_Date in ('', None):
             Registration_End_Date = None
         else:
-            Registration_End_Date = datetime.datetime.strptime(Registration_End_Date, date_format).date()
+            Registration_End_Date = datetime.strptime(Registration_End_Date, date_format).date()
 
         Transplant_ID = Row[x + 5]
         if Transplant_ID in ('', None):
@@ -256,7 +273,7 @@ for line_number, Row in enumerate(InputCSVReader, start=1):
             Transplant_Date = None
         else:
             try:
-                Transplant_Date = datetime.datetime.strptime(Transplant_Date, date_format).date()
+                Transplant_Date = datetime.strptime(Transplant_Date, date_format).date()
             except Exception:
                 raise
 
