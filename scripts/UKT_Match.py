@@ -61,7 +61,7 @@ def main():
 
     paeds_csv = os.path.join(args.root, PAEDS_CSV)
     if os.path.exists(paeds_csv):
-        log.info("importing paeds patients from {} into the db...".format(paeds_csv))
+        log.info(f"importing paeds patients from {paeds_csv} into the db...")
         import_paeds_from_csv(db, paeds_csv, rr_no_postcode_map)
     else:
         log.critical("{} does not exist".format(paeds_csv))
@@ -74,30 +74,70 @@ def main():
     log.info("matching patients...")
 
     ukt_columns = [
-        "RR_ID", "UKTR_ID", "UKTR_TX_ID1", "UKTR_TX_ID2", "UKTR_TX_ID3", "UKTR_TX_ID4", "UKTR_TX_ID5", "UKTR_TX_ID6",
-        "PREVIOUS_MATCH", "UKTR_RSURNAME", "UKTR_RFORENAME", "UKTR_RDOB", "UKTR_RSEX", "UKTR_RPOSTCODE", "UKTR_RNHS_NO",
+        "RR_ID",
+        "UKTR_ID",
+        "UKTR_TX_ID1",
+        "UKTR_TX_ID2",
+        "UKTR_TX_ID3",
+        "UKTR_TX_ID4",
+        "UKTR_TX_ID5",
+        "UKTR_TX_ID6",
+        "PREVIOUS_MATCH",
+        "UKTR_RSURNAME",
+        "UKTR_RFORENAME",
+        "UKTR_RDOB",
+        "UKTR_RSEX",
+        "UKTR_RPOSTCODE",
+        "UKTR_RNHS_NO",
     ]
-    rr_columns = ["RR_ID", "RR_SURNAME", "RR_FORENAME", "RR_DOB", "RR_SEX", "RR_POSTCODE", "RR_NHS_NO"]
-    input_filename = os.path.join(root, "UKTR_DATA_{}.csv".format(args.date))
+    rr_columns = [
+        "RR_ID",
+        "RR_SURNAME",
+        "RR_FORENAME",
+        "RR_DOB",
+        "RR_SEX",
+        "RR_POSTCODE",
+        "RR_NHS_NO"
+    ]
+    input_filename = os.path.join(root, f"UKTR_DATA_{args.date}.csv")
     if not os.path.exists(input_filename):
-        log.critical("Input filename {} does not exist".format(input_filename))
+        log.critical(f"Input filename {input_filename} does not exist")
         sys.exit(1)
-    reader = csv.reader(open(input_filename, "rb"))
+    reader = csv.reader(open(input_filename, "r"))
     #
     if args.output:
         root = os.path.expanduser(args.output)
-    output_filename = os.path.join(root, "UKTR_DATA_{}_MATCHED.csv".format(args.date))
-    writer = csv.writer(open(output_filename, "wb"))
 
     columns = next(reader)
     check_columns(columns, ukt_columns)
 
-    combined_columns = ukt_columns + rr_columns
-    writer.writerow(combined_columns)
-
     log.info("Start Matching run")
     start_run = time.clock()
+    row_reached_file = os.path.join(root, 'row_reached.txt')
+    line_number_start = 1
+    if os.path.exists(row_reached_file):
+        with open(row_reached_file) as f:
+            line_number_start_read = f.read().strip()
+            if line_number_start_read != '':
+                line_number_start = int(line_number_start_read)
+    else:
+        with open(row_reached_file, 'w') as f:
+            pass
+    output_filename = os.path.join(root, f"UKTR_DATA_{args.date}_MATCHED.csv")
+    writer = None
+    output_fh = None
+    if line_number_start == 1:
+        output_fh = open(output_filename, "w", newline='')
+        writer = csv.writer(output_fh)
+        combined_columns = ukt_columns + rr_columns
+        writer.writerow(combined_columns)
+    else:
+        output_fh = open(output_filename, "a", newline='')
+        writer = csv.writer(output_fh)
+    log.info(f"Start at line {line_number_start}")
     for line_number, row in enumerate(reader, start=1):
+        if line_number < line_number_start:
+            continue
         if line_number % 1000 == 0:
             log.info("line %d (%.2f/s)" % (line_number, line_number / (time.clock() - start_run)))
 
@@ -106,19 +146,21 @@ def main():
         uktssa_no = int(row[1])
 
         # Note: UKT put NHS no and CHI no in the same column
-        nhs_no = row[14]
+        nhs_no = None
+        nhs_no_to_check = row[14]
         chi_no = None
         hsc_no = None
-        if nhs_no != '':
-            number_type = RR_Validate_NHS_No(int(nhs_no))
-            if number_type == 3:
-                chi_no = nhs_no
-                nhs_no = None
-            if number_type == 4:
-                hsc_no = nhs_no
-                nhs_no = None
-        else:
-            nhs_no = None
+        if nhs_no_to_check != '':
+            try:
+                number_type = RR_Validate_NHS_No(int(nhs_no_to_check))
+                if number_type == 3:
+                    chi_no = nhs_no_to_check
+                elif number_type == 4:
+                    hsc_no = nhs_no_to_check
+                else:
+                    nhs_no = nhs_no_to_check
+            except ValueError as v:
+                log.critical(f"Invalid NHS No: \"{nhs_no_to_check}\"")
 
         identifier_matches = []
 
@@ -179,7 +221,12 @@ def main():
             dob = row[11]
 
             if dob != "":
+                dob_to_convert = dob
                 dob = convert_datetime_string_to_datetime(dob)
+                if not dob:
+                    log.critical(f"no date-time conversion for date-of-birth {dob_to_convert}")
+                else:
+                    log.debug(f"Convert {dob_to_convert} to {dob}")
             else:
                 dob = None
 
@@ -213,7 +260,8 @@ def main():
                 sex = get_patient_sex(db, result[0])
                 nhs_no = result[5]
 
-                # Postcode will be missing from the result as we aren't supplying a value for hosp_centre and this is
+                # Postcode will be missing from the result
+                # as we aren't supplying a value for hosp_centre and this is
                 # used to join the residency table
                 postcode = rr_no_postcode_map.get(rr_no, "")
 
@@ -230,29 +278,37 @@ def main():
             pass
 
         match_rr_no = row[15]
-
+        uktr_id = f"UKTR_ID={uktssa_no}"
+        match_rr_no = f"RR_NO={match_rr_no}"
         if prev_match_rr_no is None:
             # Didn't match last time
             prev_match = 0
 
             if match_rr_no:
                 # But matched this time
-                log.info("NEW_MATCH: UKTR_ID={} RR_NO={}".format(uktssa_no, match_rr_no))
+                log.info(f"NEW_MATCH: {uktr_id} RR_NO={match_rr_no}")
         elif match_rr_no is None:
             # Didn't match this time
             prev_match = 3
-            log.info("USED_TO_MATCH: UKTR_ID={} PREV_RR_NO={}".format(uktssa_no, prev_match_rr_no))
+            log.info(f"USED_TO_MATCH: {uktr_id} PREV_RR_NO={prev_match_rr_no}")
         elif prev_match_rr_no == match_rr_no:
             # Matched to the same patient
             prev_match = 1
         else:
             # Matched to a different patient
             prev_match = 2
-            log.info("DIFFERENT_MATCH: UKTR_ID={} PREV_RR_NO={} RR_NO={}".format(uktssa_no, prev_match_rr_no, match_rr_no))
+
+            m = f"DIFFERENT_MATCH: {uktr_id} PREV_RR_NO={prev_match_rr_no} {match_rr_no}"
+            log.info(m)
 
         row[8] = prev_match
 
         writer.writerow(row)
+        #
+        # write out the row number completed
+        with open(row_reached_file, 'w') as f:
+            f.write(str(line_number)+"\n")
+    output_fh.close()
     log.info("Finish matching run")
 
 
@@ -269,121 +325,131 @@ def check_columns(columns, expected_columns):
 
 def import_paeds_from_csv(db, filename, rr_no_postcode_map):
     """ Import paeds patients into a temporary table """
+    with open(filename) as reader_fh:
+        reader = csv.reader(reader_fh)
+        columns = next(reader)
+        paeds_columns = [
+            "BAPN_No",
+            "NHS_No",
+            "CHI_No",
+            "Renal_Reg_No",
+            "UKT_no",
+            "Surname",
+            "Forename",
+            "DOB",
+            "Sex",
+            "Postcode"
+        ]
+        check_columns(columns, paeds_columns)
 
-    reader = csv.reader(open(filename, "rb"))
+        dummy_rr_no = 999900001
 
-    columns = next(reader)
-    paeds_columns = ["BAPN_No", "NHS_No", "CHI_No", "Renal_Reg_No", "UKT_no", "Surname", "Forename", "DOB", "Sex", "Postcode"]
-    check_columns(columns, paeds_columns)
+        for line, row in enumerate(reader, start=1):
+            rr_no = row[3]
 
-    dummy_rr_no = 999900001
+            if rr_no == "":
+                rr_no = dummy_rr_no
+                dummy_rr_no += 1
+            else:
+                # Patient already in database
+                continue
 
-    for line, row in enumerate(reader, start=1):
-        rr_no = row[3]
+            bapn_no = row[0]
 
-        if rr_no == "":
-            rr_no = dummy_rr_no
-            dummy_rr_no += 1
-        else:
-            # Patient already in database
-            continue
+            nhs_no = row[1]
 
-        bapn_no = row[0]
-
-        nhs_no = row[1]
-
-        if nhs_no == "":
-            nhs_no = None
-
-        chi_no = row[2]
-
-        if chi_no == "":
-            chi_no = None
-
-        hsc_no = None
-        if nhs_no:
-            number_type = RR_Validate_NHS_No(int(nhs_no))
-            if number_type == 4:
-                hsc_no = nhs_no
+            if nhs_no == "":
                 nhs_no = None
 
-        uktssa_no = row[4]
+            chi_no = row[2]
 
-        surname = row[5].upper()
-        forename = row[6].upper()
+            if chi_no == "":
+                chi_no = None
 
-        dob = row[7]
-        dob = datetime.strptime(dob, "%d/%m/%Y")
+            hsc_no = None
+            if nhs_no:
+                number_type = RR_Validate_NHS_No(int(nhs_no))
+                if number_type == 4:
+                    hsc_no = nhs_no
+                    nhs_no = None
 
-        sex = row[8]
+            uktssa_no = row[4]
 
-        if sex != "":
-            if sex.lower() == "female":
-                sex = 1
-            elif sex.lower() == "male":
-                sex = 2
+            surname = row[5].upper()
+            forename = row[6].upper()
+
+            dob = row[7]
+            dob = datetime.strptime(dob, "%d/%m/%Y")
+
+            sex = row[8]
+
+            if sex != "":
+                if sex.lower() == "female":
+                    sex = 1
+                elif sex.lower() == "male":
+                    sex = 2
+                else:
+                    try:
+                        sex = int(sex)
+                    except Exception:
+                        pass
+
+                    if sex not in [1, 2, 8]:
+                        raise Error("unknown sex: %s" % sex)
             else:
-                try:
-                    sex = int(sex)
-                except Exception:
-                    pass
+                sex = 8
 
-                if sex not in [1, 2, 8]:
-                    raise Error("unknown sex: %s" % sex)
-        else:
-            sex = 8
+            patients_sql = """
+                INSERT INTO #UKT_MATCH_PATIENTS (
+                    UNDELETED_RR_NO,
+                    RR_NO,
+                    UKTSSA_NO,
+                    SURNAME,
+                    FORENAME,
+                    DATE_BIRTH,
+                    NEW_NHS_NO,
+                    CHI_NO,
+                    HSC_NO,
+                    LOCAL_HOSP_NO,
+                    SOUNDEX_SURNAME,
+                    SOUNDEX_FORENAME,
+                    PATIENT_TYPE
+                )
+                VALUES (
+                    :RR_NO,
+                    :RR_NO,
+                    :UKTSSA_NO,
+                    :SURNAME,
+                    :FORENAME,
+                    :DATE_BIRTH,
+                    :NEW_NHS_NO,
+                    :CHI_NO,
+                    :HSC_NO,
+                    :BAPN_NO,
+                    SOUNDEX(dbo.normalise_surname2(:SURNAME)),
+                    SOUNDEX(dbo.normalise_forename2(:FORENAME)),
+                    'PAEDIATRIC'
+                )
+            """
 
-        patients_sql = """
-            INSERT INTO #UKT_MATCH_PATIENTS (
-                UNDELETED_RR_NO,
-                RR_NO,
-                UKTSSA_NO,
-                SURNAME,
-                FORENAME,
-                DATE_BIRTH,
-                NEW_NHS_NO,
-                CHI_NO,
-                HSC_NO,
-                LOCAL_HOSP_NO,
-                SOUNDEX_SURNAME,
-                SOUNDEX_FORENAME,
-                PATIENT_TYPE
-            )
-            VALUES (
-                :RR_NO,
-                :RR_NO,
-                :UKTSSA_NO,
-                :SURNAME,
-                :FORENAME,
-                :DATE_BIRTH,
-                :NEW_NHS_NO,
-                :CHI_NO,
-                :HSC_NO,
-                :BAPN_NO,
-                SOUNDEX(dbo.normalise_surname2(:SURNAME)),
-                SOUNDEX(dbo.normalise_forename2(:FORENAME)),
-                'PAEDIATRIC'
-            )
-        """
+            db.execute(patients_sql, {
+                "BAPN_NO": bapn_no,
+                "NEW_NHS_NO": nhs_no,
+                "CHI_NO": chi_no,
+                "HSC_NO": hsc_no,
+                "RR_NO": rr_no,
+                "UKTSSA_NO": uktssa_no,
+                "SURNAME": surname,
+                "FORENAME": forename,
+                "DATE_BIRTH": dob,
+                "SEX": sex,
+                "LOCAL_HOSP_NO": bapn_no,
+            })
 
-        db.execute(patients_sql, {
-            "BAPN_NO": bapn_no,
-            "NEW_NHS_NO": nhs_no,
-            "CHI_NO": chi_no,
-            "HSC_NO": hsc_no,
-            "RR_NO": rr_no,
-            "UKTSSA_NO": uktssa_no,
-            "SURNAME": surname,
-            "FORENAME": forename,
-            "DATE_BIRTH": dob,
-            "SEX": sex,
-            "LOCAL_HOSP_NO": bapn_no,
-        })
+            postcode = row[9]
 
-        postcode = row[9]
-
-        if postcode != "":
-            rr_no_postcode_map[rr_no] = postcode
+            if postcode != "":
+                rr_no_postcode_map[rr_no] = postcode
 
 
 def populate_rr_no_postcode_map(db, rr_no_postcode_map):

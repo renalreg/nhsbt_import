@@ -12,16 +12,18 @@ handlers:
         stream: ext://sys.stdout
 
     ukt_match_file:
-        class: logging.FileHandler
+        class: logging.handlers.RotatingFileHandler
         level: DEBUG
         formatter: simple
         filename: logs/ukt_match.log
-        
+        backupCount: 20
+
     ukt_import_file:
-        class: logging.FileHandler
+        class: logging.handlers.RotatingFileHandler
         level: DEBUG
         formatter: simple
         filename: logs/ukt_import.log
+        backupCount: 20
 
 loggers:
   ukt_match:

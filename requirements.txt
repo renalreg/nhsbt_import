@@ -1,6 +1,16 @@
+pyyaml
+sqlalchemy
+# dateutil
+python-dateutil
+easygui
+pyqt4
+pypiwin32==220
+adodbapi
+pyodbc
 -e git+ssh://jira.renalregistry.nhs.uk:7999/rr/rr_database#egg=rr.database
 -e git+ssh://jira.renalregistry.nhs.uk:7999/rr/utils#egg=rr.utils
 -e git+ssh://git@jira.renalregistry.nhs.uk:7999/rr/rr_common#egg=rr_common
 -e git+ssh://git@jira.renalregistry.nhs.uk:7999/rr/rr_reports#egg=rr_reports
 -e git+ssh://git@jira.renalregistry.nhs.uk:7999/rr/rr_data#egg=rr_data
--e git+ssh://git@jira.renalregistry.nhs.uk:7999/rr/rr_resources#egg=rr_resources
+-e git+ssh://git@jira.renalregistry.nhs.uk:7999/rr/rr_resources#egg=rr_resourceS
+-e .
