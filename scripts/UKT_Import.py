@@ -31,8 +31,7 @@ def format_date(str_date):
     return formatted_date
 
 
-def run(csv_reader, error_file='UKT_Errors.xls', dry_run=False):
-    RUNSCRIPT = not dry_run
+def run(csv_reader, error_file='UKT_Errors.xls'):
     log = logging.getLogger('ukt_import')
     driver = 'SQL+Server+Native+Client+11.0'
     Engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
@@ -85,17 +84,11 @@ def run(csv_reader, error_file='UKT_Errors.xls', dry_run=False):
     TheExcelErrorWB.AddSheet("Missing Patients", ("UKTSSA_No", ), 0)
     TheExcelErrorWB.AddSheet("Missing Transplants", ("Transplant_ID", ), 0)
 
-    FirstRow = True
-
     PatientList = list()
     TransplantList = list()
 
-    for line_number, Row in enumerate(csv_reader, start=1):
+    for line_number, Row in enumerate(csv_reader, start=2):
         log.info("on line {}".format(line_number))
-
-        if FirstRow:
-            FirstRow = False
-            continue
         Row = list(Row)
         for i in range(0, len(Row)):
             if isinstance(Row[i], str):
@@ -140,22 +133,21 @@ def run(csv_reader, error_file='UKT_Errors.xls', dry_run=False):
         if len(Results) == 1:
             log.info("UKT Patient {} found in database".format(UKTSSA_No))
             TheUKTPatient = Results[0]
-            if RUNSCRIPT:
-                log.info("Updating record")
-                if Surname != TheUKTPatient.Surname:
-                    TheUKTPatient.Surname = Surname
-                if Forename != TheUKTPatient.Forename:
-                    TheUKTPatient.Forename = Forename
-                if Sex != TheUKTPatient.Sex:
-                    TheUKTPatient.Sex = Sex
-                if Post_Code != TheUKTPatient.Post_Code:
-                    TheUKTPatient.Post_Code = Post_Code
-                if New_NHS_No != TheUKTPatient.New_NHS_No:
-                    TheUKTPatient.New_NHS_No = New_NHS_No
-                if ukt_date_death != TheUKTPatient.ukt_date_death:
-                    TheUKTPatient.ukt_date_death = ukt_date_death
-                if UKT_Date_Birth != TheUKTPatient.UKT_Date_Birth:
-                    TheUKTPatient.UKT_Date_Birth = UKT_Date_Birth
+            log.info("Updating record")
+            if Surname != TheUKTPatient.Surname:
+                TheUKTPatient.Surname = Surname
+            if Forename != TheUKTPatient.Forename:
+                TheUKTPatient.Forename = Forename
+            if Sex != TheUKTPatient.Sex:
+                TheUKTPatient.Sex = Sex
+            if Post_Code != TheUKTPatient.Post_Code:
+                TheUKTPatient.Post_Code = Post_Code
+            if New_NHS_No != TheUKTPatient.New_NHS_No:
+                TheUKTPatient.New_NHS_No = New_NHS_No
+            if ukt_date_death != TheUKTPatient.UKT_Date_Death:
+                TheUKTPatient.ukt_date_death = ukt_date_death
+            if UKT_Date_Birth != TheUKTPatient.UKT_Date_Birth:
+                TheUKTPatient.UKT_Date_Birth = UKT_Date_Birth
 
             MatchType = None
             # RR_No here comes from the matched file
@@ -194,23 +186,22 @@ def run(csv_reader, error_file='UKT_Errors.xls', dry_run=False):
                     )
                 )
             # Update the RR_No
-            if RR_No is not None and RR_No != TheUKTPatient.RR_No and RUNSCRIPT:
+            if RR_No is not None and RR_No != TheUKTPatient.RR_No:
                 TheUKTPatient.RR_No = RR_No
         elif len(Results) == 0:
-            if RUNSCRIPT:
-                log.info("Updating record")
-                ThePatient = UKT_Patient(
-                    UKTSSA_No=UKTSSA_No,
-                    Surname=Surname,
-                    Forename=Forename,
-                    Sex=Sex,
-                    Post_Code=Post_Code,
-                    New_NHS_No=New_NHS_No,
-                    RR_No=RR_No,
-                    UKT_Date_Death=ukt_date_death,
-                    UKT_Date_Birth=UKT_Date_Birth
-                )
-                Session.add(ThePatient)
+            log.info("Add patient")
+            ThePatient = UKT_Patient(
+                UKTSSA_No=UKTSSA_No,
+                Surname=Surname,
+                Forename=Forename,
+                Sex=Sex,
+                Post_Code=Post_Code,
+                New_NHS_No=New_NHS_No,
+                RR_No=RR_No,
+                UKT_Date_Death=ukt_date_death,
+                UKT_Date_Birth=UKT_Date_Birth
+            )
+            Session.add(ThePatient)
         else:
             log.error("{} in the database multiple times".format(UKTSSA_No))
 
@@ -315,108 +306,106 @@ def run(csv_reader, error_file='UKT_Errors.xls', dry_run=False):
 
             Results = Session.query(UKT_Transplant).filter_by(Registration_ID=Registration_ID).all()
 
-            if len(Results) == 1:
+            # Record exists - update it
+            if len(Results) > 0:
 
                 TheTransplant = Results[0]
-                if RUNSCRIPT:
-                    log.info("Updating record")
+                log.info("Updating record")
+                # No need to update Registration ID as it was used
+                # for matching. Or UKTSSA_No as they're related.
 
-                    # No need to update Registration ID as it was used
-                    # for matching. Or UKTSSA_No as they're related.
+                if Registration_Date != TheTransplant.Registration_Date:
+                    TheTransplant.Registration_Date = Registration_Date
 
-                    if Registration_Date != TheTransplant.Registration_Date:
-                        TheTransplant.Registration_Date = Registration_Date
+                if Registration_Date_Type != TheTransplant.Registration_Date_Type:
+                    TheTransplant.Registration_Date_Type = Registration_Date_Type
 
-                    if Registration_Date_Type != TheTransplant.Registration_Date_Type:
-                        TheTransplant.Registration_Date_Type = Registration_Date_Type
+                if Registration_End_Status != TheTransplant.Registration_End_Status:
+                    TheTransplant.Registration_End_Status = Registration_End_Status
 
-                    if Registration_End_Status != TheTransplant.Registration_End_Status:
-                        TheTransplant.Registration_End_Status = Registration_End_Status
+                if Transplant_Consideration != TheTransplant.Transplant_Consideration:
+                    TheTransplant.Transplant_Consideration = Transplant_Consideration
 
-                    if Transplant_Consideration != TheTransplant.Transplant_Consideration:
-                        TheTransplant.Transplant_Consideration = Transplant_Consideration
-
-                    if Registration_End_Date != TheTransplant.Registration_End_Date:
-                        if TheTransplant.Registration_End_Date is not None:
-                            TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow(
-                                (
-                                    UKTSSA_No,
-                                    Registration_ID,
-                                    "Registration End Date",
-                                    Registration_End_Date,
-                                    TheTransplant.Registration_End_Date
-                                )
+                if Registration_End_Date != TheTransplant.Registration_End_Date:
+                    if TheTransplant.Registration_End_Date is not None:
+                        TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow(
+                            (
+                                UKTSSA_No,
+                                Registration_ID,
+                                "Registration End Date",
+                                Registration_End_Date,
+                                TheTransplant.Registration_End_Date
                             )
-                        TheTransplant.Registration_End_Date = Registration_End_Date
+                        )
+                    TheTransplant.Registration_End_Date = Registration_End_Date
 
-                    if Transplant_ID != TheTransplant.Transplant_ID:
-                        TheTransplant.Transplant_ID = Transplant_ID
+                if Transplant_ID != TheTransplant.Transplant_ID:
+                    TheTransplant.Transplant_ID = Transplant_ID
 
-                    if Transplant_Date != TheTransplant.Transplant_Date:
-                        TheTransplant.Transplant_Date = Transplant_Date
+                if Transplant_Date != TheTransplant.Transplant_Date:
+                    TheTransplant.Transplant_Date = Transplant_Date
 
-                    if Transplant_Type != TheTransplant.Transplant_Type:
-                        TheTransplant.Transplant_Type = Transplant_Type
+                if Transplant_Type != TheTransplant.Transplant_Type:
+                    TheTransplant.Transplant_Type = Transplant_Type
 
-                    if Transplant_Sex != TheTransplant.Transplant_Sex:
-                        TheTransplant.Transplant_Sex = Transplant_Sex
+                if Transplant_Sex != TheTransplant.Transplant_Sex:
+                    TheTransplant.Transplant_Sex = Transplant_Sex
 
-                    if Transplant_Relationship != TheTransplant.Transplant_Relationship:
-                        TheTransplant.Transplant_Relationship = Transplant_Relationship
+                if Transplant_Relationship != TheTransplant.Transplant_Relationship:
+                    TheTransplant.Transplant_Relationship = Transplant_Relationship
 
-                    if Transplant_Organ != TheTransplant.Transplant_Organ:
-                        TheTransplant.Transplant_Organ = Transplant_Organ
+                if Transplant_Organ != TheTransplant.Transplant_Organ:
+                    TheTransplant.Transplant_Organ = Transplant_Organ
 
-                    # TODO: This might benefit from all being converted to ASCII
-                    if Transplant_Unit != TheTransplant.Transplant_Unit:
-                        TheTransplant.Transplant_Unit = Transplant_Unit
+                # TODO: This might benefit from all being converted to ASCII
+                if Transplant_Unit != TheTransplant.Transplant_Unit:
+                    TheTransplant.Transplant_Unit = Transplant_Unit
 
-                    if UKT_Fail_Date != TheTransplant.UKT_Fail_Date:
-                        TheTransplant.UKT_Fail_Date = UKT_Fail_Date
+                if UKT_Fail_Date != TheTransplant.UKT_Fail_Date:
+                    TheTransplant.UKT_Fail_Date = UKT_Fail_Date
 
-                    if Transplant_Dialysis != TheTransplant.Transplant_Dialysis:
-                        TheTransplant.Transplant_Dialysis = Transplant_Dialysis
+                if Transplant_Dialysis != TheTransplant.Transplant_Dialysis:
+                    TheTransplant.Transplant_Dialysis = Transplant_Dialysis
 
-                    if CIT_Mins != TheTransplant.CIT_Mins:
-                        TheTransplant.CIT_Mins = CIT_Mins
+                if CIT_Mins != TheTransplant.CIT_Mins:
+                    TheTransplant.CIT_Mins = CIT_Mins
 
-                    if HLA_Mismatch != TheTransplant.HLA_Mismatch:
-                        TheTransplant.HLA_Mismatch = HLA_Mismatch
+                if HLA_Mismatch != TheTransplant.HLA_Mismatch:
+                    TheTransplant.HLA_Mismatch = HLA_Mismatch
 
-                    if Cause_Of_Failure != TheTransplant.Cause_Of_Failure:
-                        TheTransplant.Cause_Of_Failure = Cause_Of_Failure
+                if Cause_Of_Failure != TheTransplant.Cause_Of_Failure:
+                    TheTransplant.Cause_Of_Failure = Cause_Of_Failure
 
-                    if Cause_Of_Failure_Text != TheTransplant.Cause_Of_Failure_Text:
-                        TheTransplant.Cause_Of_Failure_Text = Cause_Of_Failure_Text
+                if Cause_Of_Failure_Text != TheTransplant.Cause_Of_Failure_Text:
+                    TheTransplant.Cause_Of_Failure_Text = Cause_Of_Failure_Text
+            # Mew Record
             else:
-                if RUNSCRIPT:
-                    log.info("Add record to database")
-                    TheTransplant = UKT_Transplant(
-                        UKTSSA_No=UKTSSA_No,
-                        Registration_ID=Registration_ID,
-                        Registration_Date=Registration_Date,
-                        Registration_Date_Type=Registration_Date_Type,
-                        Registration_End_Status=Registration_End_Status,
-                        Transplant_Consideration=Transplant_Consideration,
-                        Registration_End_Date=Registration_End_Date,
-                        Transplant_ID=Transplant_ID,
-                        Transplant_Date=Transplant_Date,
-                        Transplant_Type=Transplant_Type,
-                        Transplant_Sex=Transplant_Sex,
-                        Transplant_Relationship=Transplant_Relationship,
-                        Transplant_Organ=Transplant_Organ,
-                        Transplant_Unit=Transplant_Unit,
-                        UKT_Fail_Date=UKT_Fail_Date,
-                        Transplant_Dialysis=Transplant_Dialysis,
-                        CIT_Mins=CIT_Mins,
-                        HLA_Mismatch=HLA_Mismatch,
-                        Cause_Of_Failure=Cause_Of_Failure,
-                        Cause_Of_Failure_Text=Cause_Of_Failure_Text
-                    )
-                    Session.add(TheTransplant)
+                log.info("Add record to database")
+                TheTransplant = UKT_Transplant(
+                    UKTSSA_No=UKTSSA_No,
+                    Registration_ID=Registration_ID,
+                    Registration_Date=Registration_Date,
+                    Registration_Date_Type=Registration_Date_Type,
+                    Registration_End_Status=Registration_End_Status,
+                    Transplant_Consideration=Transplant_Consideration,
+                    Registration_End_Date=Registration_End_Date,
+                    Transplant_ID=Transplant_ID,
+                    Transplant_Date=Transplant_Date,
+                    Transplant_Type=Transplant_Type,
+                    Transplant_Sex=Transplant_Sex,
+                    Transplant_Relationship=Transplant_Relationship,
+                    Transplant_Organ=Transplant_Organ,
+                    Transplant_Unit=Transplant_Unit,
+                    UKT_Fail_Date=UKT_Fail_Date,
+                    Transplant_Dialysis=Transplant_Dialysis,
+                    CIT_Mins=CIT_Mins,
+                    HLA_Mismatch=HLA_Mismatch,
+                    Cause_Of_Failure=Cause_Of_Failure,
+                    Cause_Of_Failure_Text=Cause_Of_Failure_Text
+                )
+                Session.add(TheTransplant)
 
-    if RUNSCRIPT:
-        Session.commit()
+    Session.commit()
 
     Cursor = Engine.connect()
 
@@ -466,7 +455,6 @@ def main():
     log = logging.getLogger('ukt_import')
     parser = argparse.ArgumentParser(description="ukt_import")
     parser.add_argument('--input', type=str, help="Specify Input File")
-    parser.add_argument('--dry-run', help="Dry-run", default=True, action='store_false')
     args = parser.parse_args()
     input_file = args.input
     if not os.path.exists(input_file):
@@ -476,7 +464,8 @@ def main():
         csv_reader = csv.reader(c)
         folder, fn = os.path.split(input_file)
         error_fp = os.path.join(folder, 'UKT_Errors.xls')
-        run(csv_reader, error_file=error_fp, dry_run=args.dry_run)
+        next(csv_reader)
+        run(csv_reader, error_file=error_fp)
 
 
 if __name__ == '__main__':
