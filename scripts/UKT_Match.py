@@ -16,61 +16,27 @@ import yaml
 import argparse
 
 PAEDS_CSV = "1 Complete Database.csv"
-INPUT_FILENAME = "UKTR_DATA_12JAN2017.csv"
-OUTPUT_FILENAME = "UKTR_DATA_12JAN2017_MATCHED.csv"
 
 
-def create_patients_table(db):
-    sql = """
-        SELECT *
-        INTO #UKT_MATCH_PATIENTS
-        FROM VWE_UKT_RR_PATIENTS;
-    """
-    db.execute(sql)
-
-    sql = "CREATE NONCLUSTERED INDEX IDX_RR_NO ON #UKT_MATCH_PATIENTS (RR_NO)"
-    db.execute(sql)
-
-    sql = "CREATE NONCLUSTERED INDEX IDX_UNDELETED_RR_NO ON #UKT_MATCH_PATIENTS (UNDELETED_RR_NO)"
-    db.execute(sql)
-
-
-def main():
-    logging.config.dictConfig(yaml.load(open('logconf.yaml', 'r')))
+def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
     log = logging.getLogger('ukt_match')
-    parser = argparse.ArgumentParser(description="ukt_match")
-    DBConnectionInfo.add_db_arguments(parser)
-    parser.add_argument('--root', type=str, help="Specify Root Folder", required=True)
-    parser.add_argument('--date', type=str, help="ddMMMYYY", required=True)
-    parser.add_argument('--output', type=str, help="Specify alternate output")
-    args = parser.parse_args()
-    root = args.root
-    datasource = 'RR-SQL-Live'
-    catalog = 'RenalReg'
-    if (args.datasource):
-        datasource = args.datasource
-    if (args.catalog):
-        catalog = args.catalog
-    db = SQLServerDatabase.connect(data_source=datasource, database=catalog)
     create_patients_table(db)
     rr_no_postcode_map = {}
     nhs_no_map = {}
     chi_no_map = {}
     hsc_no_map = {}
     uktssa_no_map = {}
-
-    paeds_csv = os.path.join(args.root, PAEDS_CSV)
-    if os.path.exists(paeds_csv):
-        log.info(f"importing paeds patients from {paeds_csv} into the db...")
-        import_paeds_from_csv(db, paeds_csv, rr_no_postcode_map)
-    else:
-        log.critical("{} does not exist".format(paeds_csv))
-        sys.exit(1)
     log.info("building postcode map...")
     populate_rr_no_postcode_map(db, rr_no_postcode_map)
     log.info("building identifier map...")
-    populate_identifier_maps(db, nhs_no_map, chi_no_map, hsc_no_map, uktssa_no_map)
-
+    populate_identifier_maps(
+        db,
+        nhs_no_map,
+        chi_no_map,
+        hsc_no_map,
+        uktssa_no_map
+    )
+    import_paeds_from_csv(db, paeds_reader, rr_no_postcode_map)
     log.info("matching patients...")
 
     ukt_columns = [
@@ -99,47 +65,19 @@ def main():
         "RR_POSTCODE",
         "RR_NHS_NO"
     ]
-    input_filename = os.path.join(root, f"UKTR_DATA_{args.date}.csv")
-    if not os.path.exists(input_filename):
-        log.critical(f"Input filename {input_filename} does not exist")
-        sys.exit(1)
-    reader = csv.reader(open(input_filename, "r"))
     #
-    if args.output:
-        root = os.path.expanduser(args.output)
 
-    columns = next(reader)
+    columns = next(uktr_reader)
     check_columns(columns, ukt_columns)
 
     log.info("Start Matching run")
     start_run = time.clock()
-    row_reached_file = os.path.join(root, 'row_reached.txt')
-    line_number_start = 1
-    if os.path.exists(row_reached_file):
-        with open(row_reached_file) as f:
-            line_number_start_read = f.read().strip()
-            if line_number_start_read != '':
-                line_number_start = int(line_number_start_read)
-    else:
-        with open(row_reached_file, 'w') as f:
-            pass
-    output_filename = os.path.join(root, f"UKTR_DATA_{args.date}_MATCHED.csv")
-    writer = None
-    output_fh = None
-    if line_number_start == 1:
-        output_fh = open(output_filename, "w", newline='')
-        writer = csv.writer(output_fh)
-        combined_columns = ukt_columns + rr_columns
-        writer.writerow(combined_columns)
-    else:
-        output_fh = open(output_filename, "a", newline='')
-        writer = csv.writer(output_fh)
-    log.info(f"Start at line {line_number_start}")
-    for line_number, row in enumerate(reader, start=1):
-        if line_number < line_number_start:
-            continue
+    combined_columns = ukt_columns + rr_columns
+    ukrr_writer.writerow(combined_columns)
+    for line_number, row in enumerate(uktr_reader, start=1):
         if line_number % 1000 == 0:
-            log.info("line %d (%.2f/s)" % (line_number, line_number / (time.clock() - start_run)))
+            timing = line_number / (time.clock() - start_run)
+            log.info("line %d (%.2f/s)" % (line_number, timing))
 
         pad_row(row, len(ukt_columns), fill="")
 
@@ -224,7 +162,9 @@ def main():
                 dob_to_convert = dob
                 dob = convert_datetime_string_to_datetime(dob)
                 if not dob:
-                    log.critical(f"no date-time conversion for date-of-birth {dob_to_convert}")
+                    log.critical((
+                        f'no date-time conversion'
+                        ' for date-of-birth {dob_to_convert}'))
                 else:
                     log.debug(f"Convert {dob_to_convert} to {dob}")
             else:
@@ -246,13 +186,12 @@ def main():
                 rr_only,
                 include_deleted
             ]
-
+            # dump_temp_table(db.cursor)
             db.cursor.callproc("PROC_UKT_MATCH_PATIENT_MATCHING", params)
             results = db.fetchall()
             # Found a match
             if len(results) > 0:
                 result = results[0]
-
                 rr_no = result[0]
                 surname = result[3]
                 forename = result[2]
@@ -264,51 +203,55 @@ def main():
                 # as we aren't supplying a value for hosp_centre and this is
                 # used to join the residency table
                 postcode = rr_no_postcode_map.get(rr_no, "")
-
-                row.extend([rr_no, surname, forename, dob, sex, postcode, nhs_no])
+                prev_rr_no = row[0]
+                row[0] = rr_no
+                row.extend([
+                    prev_rr_no,
+                    surname,
+                    forename,
+                    dob,
+                    sex,
+                    postcode,
+                    nhs_no
+                ])
 
         # Ensure correct number of output columns
         pad_row(row, len(combined_columns))
 
         prev_match_rr_no = None
-
-        try:
-            prev_match_rr_no = int(row[0])
-        except ValueError:
-            pass
-
-        match_rr_no = row[15]
-        uktr_id = f"UKTR_ID={uktssa_no}"
-        match_rr_no = f"RR_NO={match_rr_no}"
+        if row[0] is not None:
+            try:
+                prev_match_rr_no = int(row[0])
+            except ValueError:
+                pass
+        match_rr_no = None
+        if row[15] is not None:
+            try:
+                match_rr_no = int(row[15])
+            except ValueError:
+                pass
         if prev_match_rr_no is None:
             # Didn't match last time
             prev_match = 0
-
             if match_rr_no:
                 # But matched this time
-                log.info(f"NEW_MATCH: {uktr_id} RR_NO={match_rr_no}")
+                log.info(f"NEW_MATCH: {uktssa_no} RR_NO={match_rr_no}")
         elif match_rr_no is None:
             # Didn't match this time
             prev_match = 3
-            log.info(f"USED_TO_MATCH: {uktr_id} PREV_RR_NO={prev_match_rr_no}")
+            log.info(f"USED_TO_MATCH: {uktssa_no} PREV_RR_NO={prev_match_rr_no}")
         elif prev_match_rr_no == match_rr_no:
             # Matched to the same patient
             prev_match = 1
+            log.info(f"Matched {uktssa_no} PREV_RR_NO={prev_match_rr_no} {match_rr_no}")
         else:
             # Matched to a different patient
             prev_match = 2
-
-            m = f"DIFFERENT_MATCH: {uktr_id} PREV_RR_NO={prev_match_rr_no} {match_rr_no}"
+            m = f"DIFFERENT_MATCH: {uktssa_no} PREV_RR_NO={prev_match_rr_no} {match_rr_no}"
             log.info(m)
 
         row[8] = prev_match
-
-        writer.writerow(row)
-        #
-        # write out the row number completed
-        with open(row_reached_file, 'w') as f:
-            f.write(str(line_number)+"\n")
-    output_fh.close()
+        ukrr_writer.writerow(row)
     log.info("Finish matching run")
 
 
@@ -323,133 +266,131 @@ def check_columns(columns, expected_columns):
             raise Error('expected column %d to be "%s" not "%s"' % (i, expected, actual))
 
 
-def import_paeds_from_csv(db, filename, rr_no_postcode_map):
+def import_paeds_from_csv(db, paeds_reader, rr_no_postcode_map):
     """ Import paeds patients into a temporary table """
-    with open(filename) as reader_fh:
-        reader = csv.reader(reader_fh)
-        columns = next(reader)
-        paeds_columns = [
-            "BAPN_No",
-            "NHS_No",
-            "CHI_No",
-            "Renal_Reg_No",
-            "UKT_no",
-            "Surname",
-            "Forename",
-            "DOB",
-            "Sex",
-            "Postcode"
-        ]
-        check_columns(columns, paeds_columns)
+    columns = next(paeds_reader)
+    paeds_columns = [
+        "BAPN_No",
+        "NHS_No",
+        "CHI_No",
+        "Renal_Reg_No",
+        "UKT_no",
+        "Surname",
+        "Forename",
+        "DOB",
+        "Sex",
+        "Postcode"
+    ]
+    check_columns(columns, paeds_columns)
 
-        dummy_rr_no = 999900001
+    dummy_rr_no = 999900001
 
-        for line, row in enumerate(reader, start=1):
-            rr_no = row[3]
+    for line, row in enumerate(paeds_reader, start=1):
+        rr_no = row[3]
 
-            if rr_no == "":
-                rr_no = dummy_rr_no
-                dummy_rr_no += 1
-            else:
-                # Patient already in database
-                continue
+        if rr_no == "":
+            rr_no = dummy_rr_no
+            dummy_rr_no += 1
+        else:
+            # Patient already in database
+            continue
 
-            bapn_no = row[0]
+        bapn_no = row[0]
 
-            nhs_no = row[1]
+        nhs_no = row[1]
 
-            if nhs_no == "":
+        if nhs_no == "":
+            nhs_no = None
+
+        chi_no = row[2]
+
+        if chi_no == "":
+            chi_no = None
+
+        hsc_no = None
+        if nhs_no:
+            number_type = RR_Validate_NHS_No(int(nhs_no))
+            if number_type == 4:
+                hsc_no = nhs_no
                 nhs_no = None
 
-            chi_no = row[2]
+        uktssa_no = row[4]
 
-            if chi_no == "":
-                chi_no = None
+        surname = row[5].upper()
+        forename = row[6].upper()
 
-            hsc_no = None
-            if nhs_no:
-                number_type = RR_Validate_NHS_No(int(nhs_no))
-                if number_type == 4:
-                    hsc_no = nhs_no
-                    nhs_no = None
+        dob = row[7]
+        dob = datetime.strptime(dob, "%d/%m/%Y")
 
-            uktssa_no = row[4]
+        sex = row[8]
 
-            surname = row[5].upper()
-            forename = row[6].upper()
-
-            dob = row[7]
-            dob = datetime.strptime(dob, "%d/%m/%Y")
-
-            sex = row[8]
-
-            if sex != "":
-                if sex.lower() == "female":
-                    sex = 1
-                elif sex.lower() == "male":
-                    sex = 2
-                else:
-                    try:
-                        sex = int(sex)
-                    except Exception:
-                        pass
-
-                    if sex not in [1, 2, 8]:
-                        raise Error("unknown sex: %s" % sex)
+        if sex != "":
+            if sex.lower() == "female":
+                sex = 1
+            elif sex.lower() == "male":
+                sex = 2
             else:
-                sex = 8
+                try:
+                    sex = int(sex)
+                except Exception:
+                    pass
 
-            patients_sql = """
-                INSERT INTO #UKT_MATCH_PATIENTS (
-                    UNDELETED_RR_NO,
-                    RR_NO,
-                    UKTSSA_NO,
-                    SURNAME,
-                    FORENAME,
-                    DATE_BIRTH,
-                    NEW_NHS_NO,
-                    CHI_NO,
-                    HSC_NO,
-                    LOCAL_HOSP_NO,
-                    SOUNDEX_SURNAME,
-                    SOUNDEX_FORENAME,
-                    PATIENT_TYPE
-                )
-                VALUES (
-                    :RR_NO,
-                    :RR_NO,
-                    :UKTSSA_NO,
-                    :SURNAME,
-                    :FORENAME,
-                    :DATE_BIRTH,
-                    :NEW_NHS_NO,
-                    :CHI_NO,
-                    :HSC_NO,
-                    :BAPN_NO,
-                    SOUNDEX(dbo.normalise_surname2(:SURNAME)),
-                    SOUNDEX(dbo.normalise_forename2(:FORENAME)),
-                    'PAEDIATRIC'
-                )
-            """
+                if sex not in [1, 2, 8]:
+                    raise Error("unknown sex: %s" % sex)
+        else:
+            sex = 8
 
-            db.execute(patients_sql, {
-                "BAPN_NO": bapn_no,
-                "NEW_NHS_NO": nhs_no,
-                "CHI_NO": chi_no,
-                "HSC_NO": hsc_no,
-                "RR_NO": rr_no,
-                "UKTSSA_NO": uktssa_no,
-                "SURNAME": surname,
-                "FORENAME": forename,
-                "DATE_BIRTH": dob,
-                "SEX": sex,
-                "LOCAL_HOSP_NO": bapn_no,
-            })
+        patients_sql = """
+            INSERT INTO #UKT_MATCH_PATIENTS (
+                UNDELETED_RR_NO,
+                RR_NO,
+                UKTSSA_NO,
+                SURNAME,
+                FORENAME,
+                DATE_BIRTH,
+                NEW_NHS_NO,
+                CHI_NO,
+                HSC_NO,
+                LOCAL_HOSP_NO,
+                SOUNDEX_SURNAME,
+                SOUNDEX_FORENAME,
+                PATIENT_TYPE
+            )
+            VALUES (
+                :RR_NO,
+                :RR_NO,
+                :UKTSSA_NO,
+                :SURNAME,
+                :FORENAME,
+                :DATE_BIRTH,
+                :NEW_NHS_NO,
+                :CHI_NO,
+                :HSC_NO,
+                :BAPN_NO,
+                SOUNDEX(dbo.normalise_surname2(:SURNAME)),
+                SOUNDEX(dbo.normalise_forename2(:FORENAME)),
+                'PAEDIATRIC'
+            )
+        """
 
-            postcode = row[9]
+        db.execute(patients_sql, {
+            "BAPN_NO": bapn_no,
+            "NEW_NHS_NO": nhs_no,
+            "CHI_NO": chi_no,
+            "HSC_NO": hsc_no,
+            "RR_NO": rr_no,
+            "UKTSSA_NO": uktssa_no,
+            "SURNAME": surname,
+            "FORENAME": forename,
+            "DATE_BIRTH": dob,
+            "SEX": sex,
+            "LOCAL_HOSP_NO": bapn_no,
+        })
 
-            if postcode != "":
-                rr_no_postcode_map[rr_no] = postcode
+        postcode = row[9]
+
+        if postcode != "":
+            rr_no_postcode_map[rr_no] = postcode
 
 
 def populate_rr_no_postcode_map(db, rr_no_postcode_map):
@@ -546,6 +487,67 @@ def pad_row(row, n_columns, fill=None):
         row.extend([fill] * n_missing_columns)
     elif n_missing_columns < 0:
         raise Error("outputted too many columns")
+
+
+def create_patients_table(db):
+    sql = """
+        SELECT *
+        INTO #UKT_MATCH_PATIENTS
+        FROM VWE_UKT_RR_PATIENTS;
+    """
+    db.execute(sql)
+
+    sql = "CREATE NONCLUSTERED INDEX IDX_RR_NO ON #UKT_MATCH_PATIENTS (RR_NO)"
+    db.execute(sql)
+
+    sql = "CREATE NONCLUSTERED INDEX IDX_UNDELETED_RR_NO ON #UKT_MATCH_PATIENTS (UNDELETED_RR_NO)"
+    db.execute(sql)
+
+
+def dump_temp_table(db):
+    query = """Select * from #UKT_MATCH_PATIENTS"""
+    db.execute(query)
+    for row in db.fetchall():
+        print(row)
+
+
+def main():
+    logging.config.dictConfig(yaml.load(open('logconf.yaml', 'r')))
+    log = logging.getLogger('ukt_match')
+    parser = argparse.ArgumentParser(description="ukt_match")
+    DBConnectionInfo.add_db_arguments(parser)
+    parser.add_argument('--root', type=str, help="Specify Root Folder", required=True)
+    parser.add_argument('--date', type=str, help="ddMMMYYY")
+    parser.add_argument('--output', type=str, help="Specify alternate output")
+    parser.add_argument('--input', type=str, help="Specify alternate output")
+    args = parser.parse_args()
+    root = args.root
+    datasource = 'RR-SQL-Live'
+    catalog = 'RenalReg'
+    if (args.datasource):
+        datasource = args.datasource
+    if (args.catalog):
+        catalog = args.catalog
+    db = SQLServerDatabase.connect(data_source=datasource, database=catalog)
+    paeds_csv = os.path.join(args.root, PAEDS_CSV)
+    if not os.path.exists(paeds_csv):
+        log.critical("{} does not exist".format(paeds_csv))
+        sys.exit(1)
+    log.info(f"importing paeds patients from {paeds_csv} into the db...")
+    input_filename = os.path.join(root, f"UKTR_DATA_{args.date}.csv")
+    if args.input:
+        input_filename = os.path.expanduser(args.input)
+    if not os.path.exists(input_filename):
+        log.critical(f"Input filename {input_filename} does not exist")
+        sys.exit(1)
+    output_filename = os.path.join(args.root, f"UKTR_DATA_{args.date}_MATCHED.csv")
+    with open(paeds_csv) as paeds_fh, \
+            open(input_filename) as uktr_fh, \
+            open(output_filename, 'w', newline='') as ukrr_fh:
+        paeds_reader = csv.reader(paeds_fh)
+        uktr_reader = csv.reader(uktr_fh)
+        output_writer = csv.writer(ukrr_fh)
+        run_match(db, paeds_reader, uktr_reader, output_writer)
 
 
 if __name__ == "__main__":

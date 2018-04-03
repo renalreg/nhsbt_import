@@ -14,9 +14,21 @@ from UKT_Models import UKT_Patient, UKT_Transplant
 from RR_Models import RR_Patient, RR_Deleted_Patient
 from rr_reports import ExcelLib
 
-is_python3 = sys.version_info.major == 3
-if is_python3:
-    unicode = str
+
+def format_date(str_date):
+    date_formats = [
+        '%d%b%Y',
+        '%d-%b-%y'
+    ]
+    formatted_date = None
+    for date_format in date_formats:
+        try:
+            formatted_date = datetime.strptime(str_date, date_format).date()
+        except Exception:
+            pass
+    if formatted_date is None:
+        raise Exception
+    return formatted_date
 
 
 def run(csv_reader, error_file='UKT_Errors.xls', dry_run=False):
@@ -77,10 +89,6 @@ def run(csv_reader, error_file='UKT_Errors.xls', dry_run=False):
 
     PatientList = list()
     TransplantList = list()
-    # NOTE: They are random with the date formats
-    # TODO: Give the ability to cope with several?
-    # (without going to the extremes of the AKI Validation)
-    date_format = '%d%b%Y'
 
     for line_number, Row in enumerate(csv_reader, start=1):
         log.info("on line {}".format(line_number))
@@ -119,11 +127,11 @@ def run(csv_reader, error_file='UKT_Errors.xls', dry_run=False):
         Post_Code = None
         New_NHS_No = None
 
-        UKT_Date_Death = Row[2]
-        if UKT_Date_Death in ('', 0):
-            UKT_Date_Death = None
+        ukt_date_death = Row[2]
+        if ukt_date_death in ('', 0):
+            ukt_date_death = None
         else:
-            UKT_Date_Death = datetime.strptime(UKT_Date_Death, date_format).date()
+            ukt_date_death = format_date(ukt_date_death)
 
         UKT_Date_Birth = None
 
@@ -144,8 +152,8 @@ def run(csv_reader, error_file='UKT_Errors.xls', dry_run=False):
                     TheUKTPatient.Post_Code = Post_Code
                 if New_NHS_No != TheUKTPatient.New_NHS_No:
                     TheUKTPatient.New_NHS_No = New_NHS_No
-                if UKT_Date_Death != TheUKTPatient.UKT_Date_Death:
-                    TheUKTPatient.UKT_Date_Death = UKT_Date_Death
+                if ukt_date_death != TheUKTPatient.ukt_date_death:
+                    TheUKTPatient.ukt_date_death = ukt_date_death
                 if UKT_Date_Birth != TheUKTPatient.UKT_Date_Birth:
                     TheUKTPatient.UKT_Date_Birth = UKT_Date_Birth
 
@@ -199,7 +207,7 @@ def run(csv_reader, error_file='UKT_Errors.xls', dry_run=False):
                     Post_Code=Post_Code,
                     New_NHS_No=New_NHS_No,
                     RR_No=RR_No,
-                    UKT_Date_Death=UKT_Date_Death,
+                    UKT_Date_Death=ukt_date_death,
                     UKT_Date_Birth=UKT_Date_Birth
                 )
                 Session.add(ThePatient)
@@ -222,7 +230,7 @@ def run(csv_reader, error_file='UKT_Errors.xls', dry_run=False):
             if Registration_Date in ('', None):
                 log.debug("No registration date for {}".format(Registration_ID))
                 continue
-            Registration_Date = datetime.strptime(Registration_Date, date_format).date()
+            Registration_Date = format_date(Registration_Date)
 
             Registration_Date_Type = Row[x + 1]
             if Registration_Date_Type in ('', None):
@@ -240,7 +248,7 @@ def run(csv_reader, error_file='UKT_Errors.xls', dry_run=False):
             if Registration_End_Date in ('', None):
                 Registration_End_Date = None
             else:
-                Registration_End_Date = datetime.strptime(Registration_End_Date, date_format).date()
+                Registration_End_Date = format_date(Registration_End_Date)
 
             Transplant_ID = Row[x + 5]
             if Transplant_ID in ('', None):
@@ -255,7 +263,7 @@ def run(csv_reader, error_file='UKT_Errors.xls', dry_run=False):
                 Transplant_Date = None
             else:
                 try:
-                    Transplant_Date = datetime.strptime(Transplant_Date, date_format).date()
+                    Transplant_Date = format_date(Transplant_Date)
                 except Exception:
                     raise
 
@@ -283,7 +291,7 @@ def run(csv_reader, error_file='UKT_Errors.xls', dry_run=False):
             if UKT_Fail_Date in ('', None):
                 UKT_Fail_Date = None
             else:
-                UKT_Fail_Date = datetime.strptime(UKT_Fail_Date, date_format).date()
+                UKT_Fail_Date = format_date(UKT_Fail_Date)
 
             Transplant_Dialysis = Row[x + 13]
             if Transplant_Dialysis in ('', None):
