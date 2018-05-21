@@ -314,6 +314,9 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
                 # No need to update Registration ID as it was used
                 # for matching. Or UKTSSA_No as they're related.
 
+                if (RR_No != TheTransplant.RR_No):
+                    TheTransplant.RR_No = RR_No
+
                 if Registration_Date != TheTransplant.Registration_Date:
                     TheTransplant.Registration_Date = Registration_Date
 
@@ -383,6 +386,7 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
                 log.info("Add record to database")
                 TheTransplant = UKT_Transplant(
                     UKTSSA_No=UKTSSA_No,
+                    RR_No=RR_No,
                     Registration_ID=Registration_ID,
                     Registration_Date=Registration_Date,
                     Registration_Date_Type=Registration_Date_Type,
@@ -457,6 +461,9 @@ def main():
     parser.add_argument('--input', type=str, help="Specify Input File")
     args = parser.parse_args()
     input_file = args.input
+    if not len(sys.argv) > 1:
+        parser.print_help()
+        return
     if not os.path.exists(input_file):
         log.fatal("File {} must exist".format(input_file))
         sys.exit(1)
