@@ -3,19 +3,220 @@ import time
 import os
 import sys
 
-from rr_database.sqlserver import SQLServerDatabase
+from rr_database.mssql import MSSQLDatabase
 from rr_common.rr_general_utils import rr_str
 from rr_common.general_exceptions import Error
 from rr_common.nhs_numbers import RR_Validate_NHS_No
 from rr_ukt_import.dateutils import convert_datetime_string_to_datetime
 from datetime import datetime
-from rr.utils.command_line import DBConnectionInfo
 import logging
 import logging.config
 import yaml
 import argparse
 
 PAEDS_CSV = "1 Complete Database.csv"
+UKT_COLUMNS = [
+    "RR_ID",
+    "UKTR_ID",
+    "UKTR_TX_ID1",
+    "UKTR_TX_ID2",
+    "UKTR_TX_ID3",
+    "UKTR_TX_ID4",
+    "UKTR_TX_ID5",
+    "UKTR_TX_ID6",
+    "PREVIOUS_MATCH",
+    "UKTR_RSURNAME",
+    "UKTR_RFORENAME",
+    "UKTR_RDOB",
+    "UKTR_RSEX",
+    "UKTR_RPOSTCODE",
+    "UKTR_RNHS_NO",
+]
+RR_COLUMNS = [
+    "RR_ID",
+    "RR_SURNAME",
+    "RR_FORENAME",
+    "RR_DOB",
+    "RR_SEX",
+    "RR_POSTCODE",
+    "RR_NHS_NO"
+]
+
+
+def match_patient(row, nhs_no_map, chi_no_map, hsc_no_map, uktssa_no_map, rr_no_postcode_map):
+    db = MSSQLDatabase.connect()
+    log = logging.getLogger('ukt_match')
+    pad_row(row, len(UKT_COLUMNS), fill="")
+
+    uktssa_no = int(row[1])
+
+    # Note: UKT put NHS no and CHI no in the same column
+    nhs_no = None
+    nhs_no_to_check = row[14]
+    chi_no = None
+    hsc_no = None
+    if nhs_no_to_check != '':
+        try:
+            number_type = RR_Validate_NHS_No(int(nhs_no_to_check))
+            if number_type == 3:
+                chi_no = nhs_no_to_check
+            elif number_type == 4:
+                hsc_no = nhs_no_to_check
+            else:
+                nhs_no = nhs_no_to_check
+        except ValueError as v:
+            log.critical(f"Invalid NHS No: \"{nhs_no_to_check}\"")
+
+    identifier_matches = []
+
+    # Match by NHS no
+    if nhs_no:
+        nhs_no_match = nhs_no_map.get(nhs_no, None)
+
+        if nhs_no_match:
+            identifier_matches.append(nhs_no_match)
+
+    # Match by CHI no
+    if chi_no:
+        chi_no_match = chi_no_map.get(chi_no, None)
+
+        if chi_no_match:
+            identifier_matches.append(chi_no_match)
+
+    # Match by HSC no
+    if hsc_no:
+        hsc_no_match = hsc_no_map.get(hsc_no, None)
+
+        if hsc_no_match:
+            identifier_matches.append(hsc_no_match)
+
+    # Match by UKTSSA no
+    uktssa_no_match = uktssa_no_map.get(uktssa_no, None)
+
+    if uktssa_no_match:
+        identifier_matches.append(uktssa_no_match)
+
+    matched_rr_nos = set(x[0] for x in identifier_matches)
+
+    # A single patient matched
+    if len(matched_rr_nos) == 1:
+        rr_row = identifier_matches[0]
+
+        rr_no = rr_row[0]
+
+        # Format DOB
+        rr_row[3] = rr_str(rr_row[3])
+
+        # Populate postcode
+        rr_row[5] = rr_no_postcode_map.get(rr_no, None)
+
+        row.extend(rr_row)
+    else:
+        rr_no = None
+        hosp_centre = None
+        local_hosp_no = None
+        scot_reg_no = None
+        rr_only = "Y"
+        include_deleted = "Y"
+
+        surname = row[9]
+        forename = row[10]
+        postcode = row[13]
+
+        dob = row[11]
+
+        if dob != "":
+            dob_to_convert = dob
+            dob = convert_datetime_string_to_datetime(dob)
+            if not dob:
+                log.critical((
+                    f'no date-time conversion'
+                    ' for date-of-birth {dob_to_convert}'))
+            else:
+                log.debug(f"Convert {dob_to_convert} to {dob}")
+        else:
+            dob = None
+
+        params = [
+            surname,
+            forename,
+            dob,
+            rr_no,
+            nhs_no,
+            chi_no,
+            hsc_no,
+            uktssa_no,
+            hosp_centre,
+            local_hosp_no,
+            scot_reg_no,
+            postcode,
+            rr_only,
+            include_deleted
+        ]
+        db.cursor.callproc("PROC_UKT_MATCH_PATIENT_MATCHING", params)
+        results = db.fetchall()
+        # Found a match
+        if len(results) > 0:
+            result = results[0]
+            rr_no = result[0]
+            surname = result[3]
+            forename = result[2]
+            dob = rr_str(result[4])
+            sex = get_patient_sex(db, result[0])
+            nhs_no = result[5]
+
+            # Postcode will be missing from the result
+            # as we aren't supplying a value for hosp_centre and this is
+            # used to join the residency table
+            postcode = rr_no_postcode_map.get(rr_no, "")
+            prev_rr_no = row[0]
+            row[0] = rr_no
+            row.extend([
+                prev_rr_no,
+                surname,
+                forename,
+                dob,
+                sex,
+                postcode,
+                nhs_no
+            ])
+
+    # Ensure correct number of output columns
+    pad_row(row, len(UKT_COLUMNS + RR_COLUMNS))
+
+    prev_match_rr_no = None
+    if row[0] is not None:
+        try:
+            prev_match_rr_no = int(row[0])
+        except ValueError:
+            pass
+    match_rr_no = None
+    if row[15] is not None:
+        try:
+            match_rr_no = int(row[15])
+        except ValueError:
+            pass
+    if prev_match_rr_no is None:
+        # Didn't match last time
+        prev_match = 0
+        if match_rr_no:
+            # But matched this time
+            log.info(f"NEW_MATCH: {uktssa_no} RR_NO={match_rr_no}")
+    elif match_rr_no is None:
+        # Didn't match this time
+        prev_match = 3
+        log.info(f"USED_TO_MATCH: {uktssa_no} PREV_RR_NO={prev_match_rr_no}")
+    elif prev_match_rr_no == match_rr_no:
+        # Matched to the same patient
+        prev_match = 1
+        log.info(f"Matched {uktssa_no} PREV_RR_NO={prev_match_rr_no} {match_rr_no}")
+    else:
+        # Matched to a different patient
+        prev_match = 2
+        m = f"DIFFERENT_MATCH: {uktssa_no} PREV_RR_NO={prev_match_rr_no} {match_rr_no}"
+        log.info(m)
+
+    row[8] = prev_match
 
 
 def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
@@ -39,219 +240,18 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
     import_paeds_from_csv(db, paeds_reader, rr_no_postcode_map)
     log.info("matching patients...")
 
-    ukt_columns = [
-        "RR_ID",
-        "UKTR_ID",
-        "UKTR_TX_ID1",
-        "UKTR_TX_ID2",
-        "UKTR_TX_ID3",
-        "UKTR_TX_ID4",
-        "UKTR_TX_ID5",
-        "UKTR_TX_ID6",
-        "PREVIOUS_MATCH",
-        "UKTR_RSURNAME",
-        "UKTR_RFORENAME",
-        "UKTR_RDOB",
-        "UKTR_RSEX",
-        "UKTR_RPOSTCODE",
-        "UKTR_RNHS_NO",
-    ]
-    rr_columns = [
-        "RR_ID",
-        "RR_SURNAME",
-        "RR_FORENAME",
-        "RR_DOB",
-        "RR_SEX",
-        "RR_POSTCODE",
-        "RR_NHS_NO"
-    ]
-    #
-
     columns = next(uktr_reader)
-    check_columns(columns, ukt_columns)
+    check_columns(columns, UKT_COLUMNS)
 
     log.info("Start Matching run")
     start_run = time.clock()
-    combined_columns = ukt_columns + rr_columns
-    ukrr_writer.writerow(combined_columns)
     for line_number, row in enumerate(uktr_reader, start=1):
         if line_number % 1000 == 0:
             timing = line_number / (time.clock() - start_run)
             log.info("line %d (%.2f/s)" % (line_number, timing))
-
-        pad_row(row, len(ukt_columns), fill="")
-
-        uktssa_no = int(row[1])
-
-        # Note: UKT put NHS no and CHI no in the same column
-        nhs_no = None
-        nhs_no_to_check = row[14]
-        chi_no = None
-        hsc_no = None
-        if nhs_no_to_check != '':
-            try:
-                number_type = RR_Validate_NHS_No(int(nhs_no_to_check))
-                if number_type == 3:
-                    chi_no = nhs_no_to_check
-                elif number_type == 4:
-                    hsc_no = nhs_no_to_check
-                else:
-                    nhs_no = nhs_no_to_check
-            except ValueError as v:
-                log.critical(f"Invalid NHS No: \"{nhs_no_to_check}\"")
-
-        identifier_matches = []
-
-        # Match by NHS no
-        if nhs_no:
-            nhs_no_match = nhs_no_map.get(nhs_no, None)
-
-            if nhs_no_match:
-                identifier_matches.append(nhs_no_match)
-
-        # Match by CHI no
-        if chi_no:
-            chi_no_match = chi_no_map.get(chi_no, None)
-
-            if chi_no_match:
-                identifier_matches.append(chi_no_match)
-
-        # Match by HSC no
-        if hsc_no:
-            hsc_no_match = hsc_no_map.get(hsc_no, None)
-
-            if hsc_no_match:
-                identifier_matches.append(hsc_no_match)
-
-        # Match by UKTSSA no
-        uktssa_no_match = uktssa_no_map.get(uktssa_no, None)
-
-        if uktssa_no_match:
-            identifier_matches.append(uktssa_no_match)
-
-        matched_rr_nos = set(x[0] for x in identifier_matches)
-
-        # A single patient matched
-        if len(matched_rr_nos) == 1:
-            rr_row = identifier_matches[0]
-
-            rr_no = rr_row[0]
-
-            # Format DOB
-            rr_row[3] = rr_str(rr_row[3])
-
-            # Populate postcode
-            rr_row[5] = rr_no_postcode_map.get(rr_no, None)
-
-            row.extend(rr_row)
-        else:
-            rr_no = None
-            hosp_centre = None
-            local_hosp_no = None
-            scot_reg_no = None
-            rr_only = "Y"
-            include_deleted = "Y"
-
-            surname = row[9]
-            forename = row[10]
-            postcode = row[13]
-
-            dob = row[11]
-
-            if dob != "":
-                dob_to_convert = dob
-                dob = convert_datetime_string_to_datetime(dob)
-                if not dob:
-                    log.critical((
-                        f'no date-time conversion'
-                        ' for date-of-birth {dob_to_convert}'))
-                else:
-                    log.debug(f"Convert {dob_to_convert} to {dob}")
-            else:
-                dob = None
-
-            params = [
-                surname,
-                forename,
-                dob,
-                rr_no,
-                nhs_no,
-                chi_no,
-                hsc_no,
-                uktssa_no,
-                hosp_centre,
-                local_hosp_no,
-                scot_reg_no,
-                postcode,
-                rr_only,
-                include_deleted
-            ]
-            # dump_temp_table(db.cursor)
-            db.cursor.callproc("PROC_UKT_MATCH_PATIENT_MATCHING", params)
-            results = db.fetchall()
-            # Found a match
-            if len(results) > 0:
-                result = results[0]
-                rr_no = result[0]
-                surname = result[3]
-                forename = result[2]
-                dob = rr_str(result[4])
-                sex = get_patient_sex(db, result[0])
-                nhs_no = result[5]
-
-                # Postcode will be missing from the result
-                # as we aren't supplying a value for hosp_centre and this is
-                # used to join the residency table
-                postcode = rr_no_postcode_map.get(rr_no, "")
-                prev_rr_no = row[0]
-                row[0] = rr_no
-                row.extend([
-                    prev_rr_no,
-                    surname,
-                    forename,
-                    dob,
-                    sex,
-                    postcode,
-                    nhs_no
-                ])
-
-        # Ensure correct number of output columns
-        pad_row(row, len(combined_columns))
-
-        prev_match_rr_no = None
-        if row[0] is not None:
-            try:
-                prev_match_rr_no = int(row[0])
-            except ValueError:
-                pass
-        match_rr_no = None
-        if row[15] is not None:
-            try:
-                match_rr_no = int(row[15])
-            except ValueError:
-                pass
-        if prev_match_rr_no is None:
-            # Didn't match last time
-            prev_match = 0
-            if match_rr_no:
-                # But matched this time
-                log.info(f"NEW_MATCH: {uktssa_no} RR_NO={match_rr_no}")
-        elif match_rr_no is None:
-            # Didn't match this time
-            prev_match = 3
-            log.info(f"USED_TO_MATCH: {uktssa_no} PREV_RR_NO={prev_match_rr_no}")
-        elif prev_match_rr_no == match_rr_no:
-            # Matched to the same patient
-            prev_match = 1
-            log.info(f"Matched {uktssa_no} PREV_RR_NO={prev_match_rr_no} {match_rr_no}")
-        else:
-            # Matched to a different patient
-            prev_match = 2
-            m = f"DIFFERENT_MATCH: {uktssa_no} PREV_RR_NO={prev_match_rr_no} {match_rr_no}"
-            log.info(m)
-
-        row[8] = prev_match
-        ukrr_writer.writerow(row)
+        match_patient(row)
+    #
+    # now write out the combined columns
     log.info("Finish matching run")
 
 
@@ -336,7 +336,7 @@ def import_paeds_from_csv(db, paeds_reader, rr_no_postcode_map):
                     pass
 
                 if sex not in [1, 2, 8]:
-                    raise Error("unknown sex: %s" % sex)
+                    raise Error(f"unknown sex: {sex}")
         else:
             sex = 8
 
@@ -515,20 +515,12 @@ def main():
     logging.config.dictConfig(yaml.load(open('logconf.yaml', 'r')))
     log = logging.getLogger('ukt_match')
     parser = argparse.ArgumentParser(description="ukt_match")
-    DBConnectionInfo.add_db_arguments(parser)
     parser.add_argument('--root', type=str, help="Specify Root Folder", required=True)
     parser.add_argument('--date', type=str, help="ddMMMYYY")
     parser.add_argument('--output', type=str, help="Specify alternate output")
     parser.add_argument('--input', type=str, help="Specify alternate output")
     args = parser.parse_args()
     root = args.root
-    datasource = 'RR-SQL-Live'
-    catalog = 'RenalReg'
-    if (args.datasource):
-        datasource = args.datasource
-    if (args.catalog):
-        catalog = args.catalog
-    db = SQLServerDatabase.connect(data_source=datasource, database=catalog)
     paeds_csv = os.path.join(args.root, PAEDS_CSV)
     if not os.path.exists(paeds_csv):
         log.critical("{} does not exist".format(paeds_csv))
@@ -547,7 +539,7 @@ def main():
         paeds_reader = csv.reader(paeds_fh)
         uktr_reader = csv.reader(uktr_fh)
         output_writer = csv.writer(ukrr_fh)
-        run_match(db, paeds_reader, uktr_reader, output_writer)
+        run_match(paeds_reader, uktr_reader, output_writer)
 
 
 if __name__ == "__main__":
