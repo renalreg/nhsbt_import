@@ -19,5 +19,5 @@ def convert_datetime_string_to_datetime(d):
             return datetime.strptime(d, format)
         except Exception:
             continue
-    log.warn("No datetime formats found for {0}".format(d))
+    log.warning("No datetime formats found for %s", d)
     return None

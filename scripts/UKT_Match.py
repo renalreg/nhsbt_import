@@ -43,8 +43,7 @@ RR_COLUMNS = [
 ]
 
 
-def match_patient(row, nhs_no_map, chi_no_map, hsc_no_map, uktssa_no_map, rr_no_postcode_map):
-    db = MSSQLDatabase.connect()
+def match_patient(db, row, nhs_no_map, chi_no_map, hsc_no_map, uktssa_no_map, rr_no_postcode_map):
     log = logging.getLogger('ukt_match')
     pad_row(row, len(UKT_COLUMNS), fill="")
 
@@ -130,8 +129,9 @@ def match_patient(row, nhs_no_map, chi_no_map, hsc_no_map, uktssa_no_map, rr_no_
             dob = convert_datetime_string_to_datetime(dob)
             if not dob:
                 log.critical((
-                    f'no date-time conversion'
-                    ' for date-of-birth {dob_to_convert}'))
+                    'no date-time conversion'
+                    f' for date-of-birth {dob_to_convert}'
+                ))
             else:
                 log.debug(f"Convert {dob_to_convert} to {dob}")
         else:
@@ -154,10 +154,8 @@ def match_patient(row, nhs_no_map, chi_no_map, hsc_no_map, uktssa_no_map, rr_no_
             include_deleted
         ]
         db.cursor.callproc("PROC_UKT_MATCH_PATIENT_MATCHING", params)
-        results = db.fetchall()
         # Found a match
-        if len(results) > 0:
-            result = results[0]
+        for result in db.cursor:
             rr_no = result[0]
             surname = result[3]
             forename = result[2]
@@ -180,7 +178,7 @@ def match_patient(row, nhs_no_map, chi_no_map, hsc_no_map, uktssa_no_map, rr_no_
                 postcode,
                 nhs_no
             ])
-
+            break
     # Ensure correct number of output columns
     pad_row(row, len(UKT_COLUMNS + RR_COLUMNS))
 
@@ -217,6 +215,7 @@ def match_patient(row, nhs_no_map, chi_no_map, hsc_no_map, uktssa_no_map, rr_no_
         log.info(m)
 
     row[8] = prev_match
+    return row
 
 
 def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
@@ -245,11 +244,22 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
 
     log.info("Start Matching run")
     start_run = time.clock()
+    combined_columns = UKT_COLUMNS + RR_COLUMNS
+    ukrr_writer.writerow(combined_columns)
     for line_number, row in enumerate(uktr_reader, start=1):
         if line_number % 1000 == 0:
             timing = line_number / (time.clock() - start_run)
             log.info("line %d (%.2f/s)" % (line_number, timing))
-        match_patient(row)
+        row = match_patient(
+            db,
+            row,
+            nhs_no_map,
+            chi_no_map,
+            hsc_no_map,
+            uktssa_no_map,
+            rr_no_postcode_map
+        )
+        ukrr_writer.writerow(row)
     #
     # now write out the combined columns
     log.info("Finish matching run")
@@ -533,13 +543,14 @@ def main():
         log.critical(f"Input filename {input_filename} does not exist")
         sys.exit(1)
     output_filename = os.path.join(args.root, f"UKTR_DATA_{args.date}_MATCHED.csv")
+    db = MSSQLDatabase.connect()
     with open(paeds_csv) as paeds_fh, \
             open(input_filename) as uktr_fh, \
             open(output_filename, 'w', newline='') as ukrr_fh:
         paeds_reader = csv.reader(paeds_fh)
         uktr_reader = csv.reader(uktr_fh)
         output_writer = csv.writer(ukrr_fh)
-        run_match(paeds_reader, uktr_reader, output_writer)
+        run_match(db, paeds_reader, uktr_reader, output_writer)
 
 
 if __name__ == "__main__":

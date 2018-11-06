@@ -421,13 +421,13 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
     WHERE
         RR_NO IS NOT NULL"""
 
-    Results = Cursor.execute(SQLString).fetchall()
+    results = Cursor.execute(SQLString).fetchall()
 
     MissingPatientCount = 0
-    for Row in Results:
-        if not (Row[0] in PatientList):
+    for row in results:
+        if not (row[0] in PatientList):
             MissingPatientCount = MissingPatientCount + 1
-            TheExcelErrorWB.Sheets['Missing Patients'].WriteRow((Row[0], Row[1]))
+            TheExcelErrorWB.Sheets['Missing Patients'].WriteRow((row[0], row[1]))
 
     log.warn("Missing Prior UKT Patients {}".format(MissingPatientCount))
 
