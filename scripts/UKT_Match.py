@@ -3,45 +3,19 @@ import time
 import os
 import sys
 
-from rr_database.sqlserver import SQLServerDatabase
+from rr_database.mssql import MSSQLDatabase
 from rr_common.rr_general_utils import rr_str
 from rr_common.general_exceptions import Error
 from rr_common.nhs_numbers import RR_Validate_NHS_No
 from rr_ukt_import.dateutils import convert_datetime_string_to_datetime
 from datetime import datetime
-from rr.utils.command_line import DBConnectionInfo
 import logging
 import logging.config
 import yaml
 import argparse
 
 PAEDS_CSV = "1 Complete Database.csv"
-
-
-def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
-    log = logging.getLogger('ukt_match')
-    create_patients_table(db)
-    rr_no_postcode_map = {}
-    nhs_no_map = {}
-    chi_no_map = {}
-    hsc_no_map = {}
-    uktssa_no_map = {}
-    rr_no_map = {}
-    log.info("building postcode map...")
-    populate_rr_no_postcode_map(db, rr_no_postcode_map)
-    log.info("building identifier map...")
-    populate_identifier_maps(
-        db,
-        nhs_no_map,
-        chi_no_map,
-        hsc_no_map,
-        uktssa_no_map,
-        rr_no_map
-    )
-    import_paeds_from_csv(db, paeds_reader, rr_no_postcode_map)
-    log.info("matching patients...")
-
-    ukt_columns = [
+UKT_COLUMNS = [
         "UKTR_RR_ID",
         "UKTR_ID",
         "UKTR_TX_ID1",
@@ -58,7 +32,7 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
         "UKTR_RPOSTCODE",
         "UKTR_RNHS_NO",
     ]
-    rr_columns = [
+RR_COLUMNS = [
         "RR_ID",
         "RR_SURNAME",
         "RR_FORENAME",
@@ -67,22 +41,12 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
         "RR_POSTCODE",
         "RR_NHS_NO"
     ]
-    #
 
-    columns = next(uktr_reader)
-    check_columns(columns, ukt_columns)
 
-    log.info("Start Matching run")
-    start_run = time.clock()
-    combined_columns = ukt_columns + rr_columns
-    ukrr_writer.writerow(combined_columns)
-    for line_number, row in enumerate(uktr_reader, start=1):
-        if line_number % 1000 == 0:
-            timing = line_number / (time.clock() - start_run)
-            log.info("line %d (%.2f/s)" % (line_number, timing))
+def match_patient(db, row, nhs_no_map, chi_no_map, hsc_no_map, uktssa_no_map, rr_no_postcode_map):
+    log = logging.getLogger('ukt_match')
+    pad_row(row, len(UKT_COLUMNS), fill="")
 
-        pad_row(row, len(ukt_columns), fill="")
-        
         if row[0]:
             ukt_rr_no = int(row[0])
         else:
@@ -181,8 +145,9 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
                 dob = convert_datetime_string_to_datetime(dob)
                 if not dob:
                     log.critical((
-                        f'no date-time conversion'
-                        ' for date-of-birth {dob_to_convert}'))
+                    'no date-time conversion'
+                    f' for date-of-birth {dob_to_convert}'
+                ))
                 else:
                     log.debug(f"Convert {dob_to_convert} to {dob}")
             else:
@@ -204,12 +169,9 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
                 rr_only,
                 include_deleted
             ]
-            # dump_temp_table(db.cursor)
             db.cursor.callproc("PROC_UKT_MATCH_PATIENT_MATCHING", params)
-            results = db.fetchall()
             # Found a match
-            if len(results) > 0:
-                result = results[0]
+        for result in db.cursor:
                 rr_no = result[0]
                 surname = result[3]
                 forename = result[2]
@@ -230,9 +192,9 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
                     postcode,
                     nhs_no
                 ])
-
+            break
         # Ensure correct number of output columns
-        pad_row(row, len(combined_columns))
+    pad_row(row, len(UKT_COLUMNS + RR_COLUMNS))
 
         prev_match_rr_no = None
         if row[0] is not None:
@@ -267,7 +229,53 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
             log.info(m)
 
         row[8] = prev_match
+    return row
+
+
+def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
+    log = logging.getLogger('ukt_match')
+    create_patients_table(db)
+    rr_no_postcode_map = {}
+    nhs_no_map = {}
+    chi_no_map = {}
+    hsc_no_map = {}
+    uktssa_no_map = {}
+    log.info("building postcode map...")
+    populate_rr_no_postcode_map(db, rr_no_postcode_map)
+    log.info("building identifier map...")
+    populate_identifier_maps(
+        db,
+        nhs_no_map,
+        chi_no_map,
+        hsc_no_map,
+        uktssa_no_map
+    )
+    import_paeds_from_csv(db, paeds_reader, rr_no_postcode_map)
+    log.info("matching patients...")
+
+    columns = next(uktr_reader)
+    check_columns(columns, UKT_COLUMNS)
+
+    log.info("Start Matching run")
+    start_run = time.clock()
+    combined_columns = UKT_COLUMNS + RR_COLUMNS
+    ukrr_writer.writerow(combined_columns)
+    for line_number, row in enumerate(uktr_reader, start=1):
+        if line_number % 1000 == 0:
+            timing = line_number / (time.clock() - start_run)
+            log.info("line %d (%.2f/s)" % (line_number, timing))
+        row = match_patient(
+            db,
+            row,
+            nhs_no_map,
+            chi_no_map,
+            hsc_no_map,
+            uktssa_no_map,
+            rr_no_postcode_map
+        )
         ukrr_writer.writerow(row)
+    #
+    # now write out the combined columns
     log.info("Finish matching run")
 
 
@@ -352,7 +360,7 @@ def import_paeds_from_csv(db, paeds_reader, rr_no_postcode_map):
                     pass
 
                 if sex not in [1, 2, 8]:
-                    raise Error("unknown sex: %s" % sex)
+                    raise Error(f"unknown sex: {sex}")
         else:
             sex = 8
 
@@ -534,20 +542,12 @@ def main():
     logging.config.dictConfig(yaml.load(open('logconf.yaml', 'r')))
     log = logging.getLogger('ukt_match')
     parser = argparse.ArgumentParser(description="ukt_match")
-    DBConnectionInfo.add_db_arguments(parser)
     parser.add_argument('--root', type=str, help="Specify Root Folder", required=True)
     parser.add_argument('--date', type=str, help="ddMMMYYY")
     parser.add_argument('--output', type=str, help="Specify alternate output")
     parser.add_argument('--input', type=str, help="Specify alternate output")
     args = parser.parse_args()
     root = args.root
-    datasource = 'RR-SQL-Live'
-    catalog = 'RenalReg'
-    if (args.datasource):
-        datasource = args.datasource
-    if (args.catalog):
-        catalog = args.catalog
-    db = SQLServerDatabase.connect(data_source=datasource, database=catalog)
     paeds_csv = os.path.join(args.root, PAEDS_CSV)
     if not os.path.exists(paeds_csv):
         log.critical("{} does not exist".format(paeds_csv))
@@ -560,6 +560,7 @@ def main():
         log.critical(f"Input filename {input_filename} does not exist")
         sys.exit(1)
     output_filename = os.path.join(args.root, f"UKTR_DATA_{args.date}_MATCHED.csv")
+    db = MSSQLDatabase.connect()
     with open(paeds_csv) as paeds_fh, \
             open(input_filename) as uktr_fh, \
             open(output_filename, 'w', newline='') as ukrr_fh:
