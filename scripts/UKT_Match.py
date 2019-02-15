@@ -26,6 +26,7 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
     chi_no_map = {}
     hsc_no_map = {}
     uktssa_no_map = {}
+    rr_no_map = {}
     log.info("building postcode map...")
     populate_rr_no_postcode_map(db, rr_no_postcode_map)
     log.info("building identifier map...")
@@ -34,13 +35,14 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
         nhs_no_map,
         chi_no_map,
         hsc_no_map,
-        uktssa_no_map
+        uktssa_no_map,
+        rr_no_map
     )
     import_paeds_from_csv(db, paeds_reader, rr_no_postcode_map)
     log.info("matching patients...")
 
     ukt_columns = [
-        "RR_ID",
+        "UKTR_RR_ID",
         "UKTR_ID",
         "UKTR_TX_ID1",
         "UKTR_TX_ID2",
@@ -80,12 +82,18 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
             log.info("line %d (%.2f/s)" % (line_number, timing))
 
         pad_row(row, len(ukt_columns), fill="")
+        
+        if row[0]:
+            ukt_rr_no = int(row[0])
+        else:
+            ukt_rr_no = None
+        
 
         uktssa_no = int(row[1])
 
         # Note: UKT put NHS no and CHI no in the same column
         nhs_no = None
-        nhs_no_to_check = row[14]
+        nhs_no_to_check = int(row[14])
         chi_no = None
         hsc_no = None
         if nhs_no_to_check != '':
@@ -101,6 +109,13 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
                 log.critical(f"Invalid NHS No: \"{nhs_no_to_check}\"")
 
         identifier_matches = []
+        
+        # Match by RR_No
+        if ukt_rr_no:
+            rr_no_match = rr_no_map.get(ukt_rr_no, None)
+
+            if rr_no_match:
+                identifier_matches.append(rr_no_match)
 
         # Match by NHS no
         if nhs_no:
@@ -144,6 +159,9 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
             rr_row[5] = rr_no_postcode_map.get(rr_no, None)
 
             row.extend(rr_row)
+            
+            print("NHS Lookup Match")
+            
         else:
             rr_no = None
             hosp_centre = None
@@ -203,10 +221,8 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
                 # as we aren't supplying a value for hosp_centre and this is
                 # used to join the residency table
                 postcode = rr_no_postcode_map.get(rr_no, "")
-                prev_rr_no = row[0]
-                row[0] = rr_no
                 row.extend([
-                    prev_rr_no,
+                    rr_no,
                     surname,
                     forename,
                     dob,
@@ -419,7 +435,7 @@ def populate_rr_no_postcode_map(db, rr_no_postcode_map):
         rr_no_postcode_map[rr_no] = postcode
 
 
-def populate_identifier_maps(db, nhs_no_map, chi_no_map, hsc_no_map, uktssa_no_map):
+def populate_identifier_maps(db, nhs_no_map, chi_no_map, hsc_no_map, uktssa_no_map, rr_no_map):
     """ Build mappings from identifiers to RR columns for output """
 
     sql = """
@@ -446,6 +462,7 @@ def populate_identifier_maps(db, nhs_no_map, chi_no_map, hsc_no_map, uktssa_no_m
         chi_no = row[1]
         hsc_no = row[2]
         uktssa_no = row[3]
+        rr_no = row[4]
         patient = list(row[4:])
 
         if nhs_no:
@@ -459,8 +476,10 @@ def populate_identifier_maps(db, nhs_no_map, chi_no_map, hsc_no_map, uktssa_no_m
 
         if uktssa_no:
             uktssa_no_map[uktssa_no] = patient
+            
+        rr_no_map[rr_no] = patient
 
-    return nhs_no_map, chi_no_map, uktssa_no_map
+    return nhs_no_map, chi_no_map, uktssa_no_map, rr_no_map
 
 
 def get_patient_sex(db, rr_no):
