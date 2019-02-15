@@ -1,2 +1,7 @@
 *.pyc
 *.egg-info
+/.mypy_cache
+/venv
+/logs
+/dist
+/build
