@@ -53,15 +53,19 @@ def match_patient(  db, row, nhs_no_map, chi_no_map, hsc_no_map,
     else:
         ukt_rr_no = None
 
-
     uktssa_no = int(row[1])
 
     # Note: UKT put NHS no and CHI no in the same column
+    try:
+        nhs_no_to_check = int(row[14])
+    except:
+        nhs_no_to_check = None
+
     nhs_no = None
-    nhs_no_to_check = int(row[14])
     chi_no = None
     hsc_no = None
-    if nhs_no_to_check != '':
+
+    if nhs_no_to_check:
         try:
             number_type = RR_Validate_NHS_No(int(nhs_no_to_check))
             if number_type == 3:
