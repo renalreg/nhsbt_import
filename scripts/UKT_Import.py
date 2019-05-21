@@ -27,6 +27,7 @@ def format_date(str_date):
         except Exception:
             pass
     if formatted_date is None:
+        print(str_date)
         raise Exception
     return formatted_date
 
@@ -46,9 +47,6 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
 
     SessionMaker = sessionmaker(bind=Engine)
     Session = SessionMaker()
-    # Note: This script does not do matching itself. Run to create the new patient records,
-    # run the matching PL/SQL procedure then re-run to get the complete report
-    # TODO: Check what that comment means
 
     TheExcelErrorWB = ExcelLib.ExcelWB()
     TheExcelErrorWB.AddSheet(
