@@ -3,7 +3,7 @@ sqlalchemy
 python-dateutil
 easygui
 pyqt4
-pypiwin32==220
+pypiwin32==219; sys_platform == 'win32'
 adodbapi
 pyodbc==4.0.16
 future_fstrings
