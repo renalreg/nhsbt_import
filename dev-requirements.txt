@@ -8,13 +8,12 @@ pluggy==0.3.1
 py==1.4.31
 pyflakes==1.0.0
 pytest==2.8.3
-pytest-cov
+pytest-cov==2.5.1
 tox==2.2.1
 virtualenv==13.1.2
 wheel==0.24.0
 pylint==1.5.5
 flake8-junit-report==2.0.1
-pyyaml
 lxml
 unidecode
 chardet
