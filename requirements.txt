@@ -1,12 +1,11 @@
 pyyaml
 sqlalchemy
-# dateutil
 python-dateutil
 easygui
 pyqt4
 pypiwin32==220
 adodbapi
-pyodbc
+pyodbc==4.0.16
 future_fstrings
 pymssql
 sqlparams
