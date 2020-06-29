@@ -14,37 +14,38 @@ import logging.config
 import yaml
 import argparse
 
-PAEDS_CSV = "1 Complete Database.csv"
+PAEDS_CSV = "/NHSBT/2020-04-06/1 Complete Database.csv"
+
 UKT_COLUMNS = [
-        "UKTR_RR_ID",
-        "UKTR_ID",
-        "UKTR_TX_ID1",
-        "UKTR_TX_ID2",
-        "UKTR_TX_ID3",
-        "UKTR_TX_ID4",
-        "UKTR_TX_ID5",
-        "UKTR_TX_ID6",
-        "PREVIOUS_MATCH",
-        "UKTR_RSURNAME",
-        "UKTR_RFORENAME",
-        "UKTR_RDOB",
-        "UKTR_RSEX",
-        "UKTR_RPOSTCODE",
-        "UKTR_RNHS_NO",
-    ]
+    "UKTR_RR_ID",
+    "UKTR_ID",
+    "UKTR_TX_ID1",
+    "UKTR_TX_ID2",
+    "UKTR_TX_ID3",
+    "UKTR_TX_ID4",
+    "UKTR_TX_ID5",
+    "UKTR_TX_ID6",
+    "PREVIOUS_MATCH",
+    "UKTR_RSURNAME",
+    "UKTR_RFORENAME",
+    "UKTR_RDOB",
+    "UKTR_RSEX",
+    "UKTR_RPOSTCODE",
+    "UKTR_RNHS_NO",
+]
 RR_COLUMNS = [
-        "RR_ID",
-        "RR_SURNAME",
-        "RR_FORENAME",
-        "RR_DOB",
-        "RR_SEX",
-        "RR_POSTCODE",
-        "RR_NHS_NO"
-    ]
+    "RR_ID",
+    "RR_SURNAME",
+    "RR_FORENAME",
+    "RR_DOB",
+    "RR_SEX",
+    "RR_POSTCODE",
+    "RR_NHS_NO"
+]
 
 
-def match_patient(  db, row, nhs_no_map, chi_no_map, hsc_no_map,
-                    uktssa_no_map, rr_no_postcode_map, rr_no_map):
+def match_patient(db, row, nhs_no_map, chi_no_map, hsc_no_map,
+                  uktssa_no_map, rr_no_postcode_map, rr_no_map):
     log = logging.getLogger('ukt_match')
     pad_row(row, len(UKT_COLUMNS), fill="")
 
@@ -150,9 +151,9 @@ def match_patient(  db, row, nhs_no_map, chi_no_map, hsc_no_map,
             dob = convert_datetime_string_to_datetime(dob)
             if not dob:
                 log.critical((
-                'no date-time conversion'
-                f' for date-of-birth {dob_to_convert}'
-            ))
+                    'no date-time conversion'
+                    f' for date-of-birth {dob_to_convert}'
+                ))
             else:
                 log.debug(f"Convert {dob_to_convert} to {dob}")
         else:

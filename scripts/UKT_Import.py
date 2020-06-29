@@ -212,34 +212,46 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
         # Loss of PID for 2013
         # for i, x in enumerate((3, 17, 31, 45, 59, 73)):
         # More fields added in October 2016
-        for i, x in enumerate((3, 21, 39, 57, 75, 93)):
+        for i, x in enumerate((3, 22, 41, 60, 79, 98)):
 
             Registration_ID = str(UKTSSA_No) + "_" + str(i + 1)
-            Registration_Date = Row[x]
+
+            Registration_Date = Row[x]  # 1
+            x += 1
             if Registration_Date in ('', None):
                 log.debug("No registration date for {}".format(Registration_ID))
                 continue
             Registration_Date = format_date(Registration_Date)
 
-            Registration_Date_Type = Row[x + 1]
+            Registration_Date_Type = Row[x]  # 2
+            x += 1
             if Registration_Date_Type in ('', None):
                 Registration_Date_Type = ''
 
-            Registration_End_Status = Row[x + 2]
+            Registration_End_Status = Row[x]  # 3
+            x += 1
             if Registration_End_Status in ('', None):
                 Registration_End_Status = ''
 
-            Transplant_Consideration = Row[x + 3]
+            Transplant_Consideration = Row[x]  # 4
+            x += 1
             if Transplant_Consideration in ('', None):
                 Transplant_Consideration = ''
 
-            Registration_End_Date = Row[x + 4]
+            UKT_SUSPENSION = Row[x]  # 5
+            x += 1
+            if UKT_SUSPENSION in('', None):
+                UKT_SUSPENSION = ''
+
+            Registration_End_Date = Row[x]  # 6
+            x += 1
             if Registration_End_Date in ('', None):
                 Registration_End_Date = None
             else:
                 Registration_End_Date = format_date(Registration_End_Date)
 
-            Transplant_ID = Row[x + 5]
+            Transplant_ID = Row[x]  # 7
+            x += 1
             if Transplant_ID in ('', None):
                 Transplant_ID = None
             else:
@@ -247,7 +259,8 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
 
             TransplantList.append(Registration_ID)
 
-            Transplant_Date = Row[x + 6]
+            Transplant_Date = Row[x]  # 8
+            x += 1
             if Transplant_Date in ('', None):
                 Transplant_Date = None
             else:
@@ -256,49 +269,60 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
                 except Exception:
                     raise
 
-            Transplant_Type = Row[x + 7]
+            Transplant_Type = Row[x]  # 9
+            x += 1
             if Transplant_Type in ('', None):
                 Transplant_Type = ''
 
-            Transplant_Sex = Row[x + 8]
+            Transplant_Sex = Row[x]  # 10
+            x += 1
             if Transplant_Sex in ('', None):
                 Transplant_Sex = ''
 
-            Transplant_Relationship = Row[x + 9]
+            Transplant_Relationship = Row[x]  # 11
+            x += 1
             if Transplant_Relationship in ('', None):
                 Transplant_Relationship = ''
 
-            Transplant_Organ = Row[x + 10]
+            Transplant_Organ = Row[x]  # 12
+            x += 1
             if Transplant_Organ in ('', None):
                 Transplant_Organ = ''
 
-            Transplant_Unit = Row[x + 11]
+            Transplant_Unit = Row[x]  # 13
+            x += 1
             if Transplant_Unit in ('', None):
                 Transplant_Unit = ''
 
-            UKT_Fail_Date = Row[x + 12]
+            UKT_Fail_Date = Row[x]  # 14
+            x += 1
             if UKT_Fail_Date in ('', None):
                 UKT_Fail_Date = None
             else:
                 UKT_Fail_Date = format_date(UKT_Fail_Date)
 
-            Transplant_Dialysis = Row[x + 13]
+            Transplant_Dialysis = Row[x]  # 15
+            x += 1
             if Transplant_Dialysis in ('', None):
                 Transplant_Dialysis = ''
 
-            CIT_Mins = Row[x + 14]
+            CIT_Mins = Row[x]  # 16
+            x += 1
             if CIT_Mins in ('', None):
                 CIT_Mins = ''
 
-            HLA_Mismatch = Row[x + 15]
+            HLA_Mismatch = Row[x]  # 17
+            x += 1
             if HLA_Mismatch in ('', None):
                 HLA_Mismatch = ''
 
-            Cause_Of_Failure = Row[x + 16]
+            Cause_Of_Failure = Row[x]  # 18
+            x += 1
             if Cause_Of_Failure in ('', None):
                 Cause_Of_Failure = ''
 
-            Cause_Of_Failure_Text = Row[x + 17]
+            Cause_Of_Failure_Text = Row[x]  # 19
+            x += 1
             if Cause_Of_Failure_Text in('', None):
                 Cause_Of_Failure_Text = ''
 
@@ -326,6 +350,9 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
 
                 if Transplant_Consideration != TheTransplant.Transplant_Consideration:
                     TheTransplant.Transplant_Consideration = Transplant_Consideration
+
+                if UKT_SUSPENSION != TheTransplant.UKT_SUSPENSION:
+                    TheTransplant.UKT_SUSPENSION = UKT_SUSPENSION
 
                 if Registration_End_Date != TheTransplant.Registration_End_Date:
                     if TheTransplant.Registration_End_Date is not None:
@@ -379,6 +406,7 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
 
                 if Cause_Of_Failure_Text != TheTransplant.Cause_Of_Failure_Text:
                     TheTransplant.Cause_Of_Failure_Text = Cause_Of_Failure_Text
+
             # Mew Record
             else:
                 log.info("Add record to database")
@@ -390,6 +418,7 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
                     Registration_Date_Type=Registration_Date_Type,
                     Registration_End_Status=Registration_End_Status,
                     Transplant_Consideration=Transplant_Consideration,
+                    UKT_SUSPENSION=UKT_SUSPENSION,
                     Registration_End_Date=Registration_End_Date,
                     Transplant_ID=Transplant_ID,
                     Transplant_Date=Transplant_Date,
@@ -403,7 +432,7 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
                     CIT_Mins=CIT_Mins,
                     HLA_Mismatch=HLA_Mismatch,
                     Cause_Of_Failure=Cause_Of_Failure,
-                    Cause_Of_Failure_Text=Cause_Of_Failure_Text
+                    Cause_Of_Failure_Text=Cause_Of_Failure_Text,
                 )
                 Session.add(TheTransplant)
 
@@ -427,7 +456,7 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
             MissingPatientCount = MissingPatientCount + 1
             TheExcelErrorWB.Sheets['Missing Patients'].WriteRow((row[0], row[1]))
 
-    log.warn("Missing Prior UKT Patients {}".format(MissingPatientCount))
+    log.warning("Missing Prior UKT Patients {}".format(MissingPatientCount))
 
     SQLString = """
     SELECT
@@ -446,7 +475,7 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
     # TODO: For Subsequent updates it may make sense to look for missing registrations
     for Row in Results:
         if Row[0] not in TransplantList:
-            log.warn("Missing Transplant {}".format(Row[0]))
+            log.warning("Missing Transplant {}".format(Row[0]))
             TheExcelErrorWB.Sheets['Missing Transplants'].WriteRow((Row[0], ))
     log.info("Complete error spreadsheet {}".format(error_file))
     TheExcelErrorWB.Save(error_file)
