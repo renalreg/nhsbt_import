@@ -111,6 +111,9 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
         # Skip paed patients
         if str(RR_No)[:4] == "9999":
             continue
+        # Skip Q100 new patients
+        elif str(RR_No)[:4] == "8888":
+            continue
 
         Surname = None
         Forename = None

@@ -8,6 +8,7 @@ from rr_common.rr_general_utils import rr_str
 from rr_common.general_exceptions import Error
 from rr_common.nhs_numbers import RR_Validate_NHS_No
 from rr_ukt_import.dateutils import convert_datetime_string_to_datetime
+from rr_ukt_import import ukrr
 from datetime import datetime
 import logging
 import logging.config
@@ -261,6 +262,9 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
         rr_no_map
     )
     import_paeds_from_csv(db, paeds_reader, rr_no_postcode_map)
+
+    import_q100(db, rr_no_postcode_map)
+    
     log.info("matching patients...")
 
     columns = next(uktr_reader)
@@ -299,6 +303,79 @@ def check_columns(columns, expected_columns):
     for i, (expected, actual) in enumerate(zip(expected_columns, columns), start=1):
         if expected != actual:
             raise Error('expected column %d to be "%s" not "%s"' % (i, expected, actual))
+
+def import_q100(db, rr_no_postcode_map):
+    """ Import paeds patients into a temporary table """
+    
+    # (rr_no, surname, forename, sex, dob, local_hosp_no, chi_no, nhs_no, hsc_no)
+    q100_patients = ukrr.process()
+    
+    dummy_rr_no = 888800001
+    
+    for line_no, row in enumerate(q100_patients, start=1):
+        # Ignore ones with an RR_No as these will be the RenalReg DB
+        if row[0] in ('', None):
+        
+            local_hosp_no = row[5]
+            nhs_no = row[7]
+            chi_no = row[6]
+            hsc_no = row[8]
+            
+            rr_no = dummy_rr_no
+            dummy_rr_no += 1
+            
+            uktssa_no = None
+            surname = row[1]
+            forename = row[2]
+            dob = row[4]
+            sex = row[3]
+
+            patients_sql = """
+                INSERT INTO #UKT_MATCH_PATIENTS (
+                    UNDELETED_RR_NO,
+                    RR_NO,
+                    UKTSSA_NO,
+                    SURNAME,
+                    FORENAME,
+                    DATE_BIRTH,
+                    NEW_NHS_NO,
+                    CHI_NO,
+                    HSC_NO,
+                    LOCAL_HOSP_NO,
+                    SOUNDEX_SURNAME,
+                    SOUNDEX_FORENAME,
+                    PATIENT_TYPE
+                )
+                VALUES (
+                    :RR_NO,
+                    :RR_NO,
+                    :UKTSSA_NO,
+                    :SURNAME,
+                    :FORENAME,
+                    :DATE_BIRTH,
+                    :NEW_NHS_NO,
+                    :CHI_NO,
+                    :HSC_NO,
+                    :LOCAL_HOSP_NO,
+                    SOUNDEX(dbo.normalise_surname2(:SURNAME)),
+                    SOUNDEX(dbo.normalise_forename2(:FORENAME)),
+                    'PAEDIATRIC'
+                )
+            """
+
+            db.execute(patients_sql, {
+                "BAPN_NO": bapn_no,
+                "NEW_NHS_NO": nhs_no,
+                "CHI_NO": chi_no,
+                "HSC_NO": hsc_no,
+                "RR_NO": rr_no,
+                "UKTSSA_NO": uktssa_no,
+                "SURNAME": surname,
+                "FORENAME": forename,
+                "DATE_BIRTH": dob,
+                "SEX": sex,
+                "LOCAL_HOSP_NO": local_hosp_no,
+            })
 
 
 def import_paeds_from_csv(db, paeds_reader, rr_no_postcode_map):
@@ -422,6 +499,7 @@ def import_paeds_from_csv(db, paeds_reader, rr_no_postcode_map):
             "LOCAL_HOSP_NO": bapn_no,
         })
 
+        # TODO: This bit is odd.
         postcode = row[9]
 
         if postcode != "":
