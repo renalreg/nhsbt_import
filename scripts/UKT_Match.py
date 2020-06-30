@@ -15,37 +15,38 @@ import logging.config
 import yaml
 import argparse
 
-PAEDS_CSV = "1 Complete Database.csv"
+PAEDS_CSV = "/NHSBT/2020-06-25/1 Complete Database.csv"
+
 UKT_COLUMNS = [
-        "UKTR_RR_ID",
-        "UKTR_ID",
-        "UKTR_TX_ID1",
-        "UKTR_TX_ID2",
-        "UKTR_TX_ID3",
-        "UKTR_TX_ID4",
-        "UKTR_TX_ID5",
-        "UKTR_TX_ID6",
-        "PREVIOUS_MATCH",
-        "UKTR_RSURNAME",
-        "UKTR_RFORENAME",
-        "UKTR_RDOB",
-        "UKTR_RSEX",
-        "UKTR_RPOSTCODE",
-        "UKTR_RNHS_NO",
-    ]
+    "UKTR_RR_ID",
+    "UKTR_ID",
+    "UKTR_TX_ID1",
+    "UKTR_TX_ID2",
+    "UKTR_TX_ID3",
+    "UKTR_TX_ID4",
+    "UKTR_TX_ID5",
+    "UKTR_TX_ID6",
+    "PREVIOUS_MATCH",
+    "UKTR_RSURNAME",
+    "UKTR_RFORENAME",
+    "UKTR_RDOB",
+    "UKTR_RSEX",
+    "UKTR_RPOSTCODE",
+    "UKTR_RNHS_NO",
+]
 RR_COLUMNS = [
-        "RR_ID",
-        "RR_SURNAME",
-        "RR_FORENAME",
-        "RR_DOB",
-        "RR_SEX",
-        "RR_POSTCODE",
-        "RR_NHS_NO"
-    ]
+    "RR_ID",
+    "RR_SURNAME",
+    "RR_FORENAME",
+    "RR_DOB",
+    "RR_SEX",
+    "RR_POSTCODE",
+    "RR_NHS_NO"
+]
 
 
-def match_patient(  db, row, nhs_no_map, chi_no_map, hsc_no_map,
-                    uktssa_no_map, rr_no_postcode_map, rr_no_map):
+def match_patient(db, row, nhs_no_map, chi_no_map, hsc_no_map,
+                  uktssa_no_map, rr_no_postcode_map, rr_no_map):
     log = logging.getLogger('ukt_match')
     pad_row(row, len(UKT_COLUMNS), fill="")
 
@@ -151,9 +152,9 @@ def match_patient(  db, row, nhs_no_map, chi_no_map, hsc_no_map,
             dob = convert_datetime_string_to_datetime(dob)
             if not dob:
                 log.critical((
-                'no date-time conversion'
-                f' for date-of-birth {dob_to_convert}'
-            ))
+                    'no date-time conversion'
+                    f' for date-of-birth {dob_to_convert}'
+                ))
             else:
                 log.debug(f"Convert {dob_to_convert} to {dob}")
         else:
@@ -263,7 +264,7 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
     import_paeds_from_csv(db, paeds_reader, rr_no_postcode_map)
 
     import_q100(db, rr_no_postcode_map)
-    
+
     log.info("matching patients...")
 
     columns = next(uktr_reader)
@@ -303,26 +304,28 @@ def check_columns(columns, expected_columns):
         if expected != actual:
             raise Error('expected column %d to be "%s" not "%s"' % (i, expected, actual))
 
+
 def import_q100(db, rr_no_postcode_map):
     """ Import paeds patients into a temporary table """
-    
+
+    # process return a list of all patients found in Q100 files
     # (rr_no, surname, forename, sex, dob, local_hosp_no, chi_no, nhs_no, hsc_no)
     q100_patients = ukrr.process()
-    
+
     dummy_rr_no = 888800001
-    
+
     for line_no, row in enumerate(q100_patients, start=1):
         # Ignore ones with an RR_No as these will be the RenalReg DB
         if row[0] in ('', None):
-        
+
             local_hosp_no = row[5]
             nhs_no = row[7]
             chi_no = row[6]
             hsc_no = row[8]
-            
+
             rr_no = dummy_rr_no
             dummy_rr_no += 1
-            
+
             uktssa_no = None
             surname = row[1]
             forename = row[2]
@@ -342,8 +345,7 @@ def import_q100(db, rr_no_postcode_map):
                     HSC_NO,
                     LOCAL_HOSP_NO,
                     SOUNDEX_SURNAME,
-                    SOUNDEX_FORENAME,
-                    PATIENT_TYPE
+                    SOUNDEX_FORENAME
                 )
                 VALUES (
                     :RR_NO,
@@ -357,13 +359,12 @@ def import_q100(db, rr_no_postcode_map):
                     :HSC_NO,
                     :LOCAL_HOSP_NO,
                     SOUNDEX(dbo.normalise_surname2(:SURNAME)),
-                    SOUNDEX(dbo.normalise_forename2(:FORENAME)),
-                    'PAEDIATRIC'
+                    SOUNDEX(dbo.normalise_forename2(:FORENAME))
                 )
             """
 
             db.execute(patients_sql, {
-                "BAPN_NO": bapn_no,
+                "UNDELETED_RR_NO": rr_no,
                 "NEW_NHS_NO": nhs_no,
                 "CHI_NO": chi_no,
                 "HSC_NO": hsc_no,
