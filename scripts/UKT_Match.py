@@ -15,7 +15,11 @@ import logging.config
 import yaml
 import argparse
 
+<<<<<<< HEAD
 PAEDS_CSV = "/NHSBT/2020-06-25/1 Complete Database.csv"
+=======
+PAEDS_CSV = "/NHSBT/2020-04-06/1 Complete Database.csv"
+>>>>>>> master
 
 UKT_COLUMNS = [
     "UKTR_RR_ID",

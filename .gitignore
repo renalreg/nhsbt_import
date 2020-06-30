@@ -6,3 +6,5 @@
 /dist
 /build
 /venv36
+/myvenv
+/.vscode
