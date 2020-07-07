@@ -15,7 +15,9 @@ import logging.config
 import yaml
 import argparse
 
-PAEDS_CSV = "/NHSBT/2020-06-25/1 Complete Database.csv"
+PAEDS_CSV = "Q:/NHSBT/2020-06-25/1 Complete Database.csv"
+
+PROCESS_Q100 = True
 
 UKT_COLUMNS = [
     "UKTR_RR_ID",
@@ -45,9 +47,9 @@ RR_COLUMNS = [
 ]
 
 
-def match_patient(db, row, nhs_no_map, chi_no_map, hsc_no_map,
+def match_patient(db, log, row, nhs_no_map, chi_no_map, hsc_no_map,
                   uktssa_no_map, rr_no_postcode_map, rr_no_map):
-    log = logging.getLogger('ukt_match')
+
     pad_row(row, len(UKT_COLUMNS), fill="")
 
     if row[0]:
@@ -263,7 +265,8 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
     )
     import_paeds_from_csv(db, paeds_reader, rr_no_postcode_map)
 
-    import_q100(db, rr_no_postcode_map)
+    if PROCESS_Q100:
+        import_q100(db, rr_no_postcode_map)
 
     log.info("matching patients...")
 
@@ -280,6 +283,7 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
             log.info("line %d (%.2f/s)" % (line_number, timing))
         row = match_patient(
             db,
+            log,
             row,
             nhs_no_map,
             chi_no_map,
@@ -306,7 +310,7 @@ def check_columns(columns, expected_columns):
 
 
 def import_q100(db, rr_no_postcode_map):
-    """ Import paeds patients into a temporary table """
+    """ Import Q100 patients into a temporary table """
 
     # process return a list of all patients found in Q100 files
     # (rr_no, surname, forename, sex, dob, local_hosp_no, chi_no, nhs_no, hsc_no)
@@ -345,7 +349,8 @@ def import_q100(db, rr_no_postcode_map):
                     HSC_NO,
                     LOCAL_HOSP_NO,
                     SOUNDEX_SURNAME,
-                    SOUNDEX_FORENAME
+                    SOUNDEX_FORENAME,
+                    PATIENT_TYPE
                 )
                 VALUES (
                     :RR_NO,
@@ -359,7 +364,8 @@ def import_q100(db, rr_no_postcode_map):
                     :HSC_NO,
                     :LOCAL_HOSP_NO,
                     SOUNDEX(dbo.normalise_surname2(:SURNAME)),
-                    SOUNDEX(dbo.normalise_forename2(:FORENAME))
+                    SOUNDEX(dbo.normalise_forename2(:FORENAME)),
+                    'Q100'
                 )
             """
 
@@ -621,7 +627,7 @@ def create_patients_table(db):
 
 
 def dump_temp_table(db):
-    query = """Select * from #UKT_MATCH_PATIENTS"""
+    query = """SELECT * from #UKT_MATCH_PATIENTS"""
     db.execute(query)
     for row in db.fetchall():
         print(row)
