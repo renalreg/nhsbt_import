@@ -3,19 +3,21 @@ import time
 import os
 import sys
 
+from ukrdc.cohort_extract import ukrr_trace
 from rr_database.mssql import MSSQLDatabase
 from rr_common.rr_general_utils import rr_str
 from rr_common.general_exceptions import Error
 from rr_common.nhs_numbers import RR_Validate_NHS_No
 from rr_ukt_import.dateutils import convert_datetime_string_to_datetime
-from rr_ukt_import import ukrr
+# from rr_ukt_import import ukrr
 from datetime import datetime
 import logging
 import logging.config
 import yaml
 import argparse
 
-PAEDS_CSV = "/NHSBT/2020-04-06/1 Complete Database.csv"
+PAEDS_CSV = "1 Complete Database.csv"
+COVID_CSV = "Tracing_324020201009173006620_response.csv"
 
 UKT_COLUMNS = [
     "UKTR_RR_ID",
@@ -241,7 +243,7 @@ def match_patient(db, row, nhs_no_map, chi_no_map, hsc_no_map,
     return row
 
 
-def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
+def run_match(db, paeds_reader, uktr_reader, ukrr_writer, covid_csv):
     log = logging.getLogger('ukt_match')
     create_patients_table(db)
     rr_no_postcode_map = {}
@@ -263,7 +265,7 @@ def run_match(db, paeds_reader, uktr_reader, ukrr_writer):
     )
     import_paeds_from_csv(db, paeds_reader, rr_no_postcode_map)
 
-    import_q100(db, rr_no_postcode_map)
+    import_covid(db, rr_no_postcode_map, covid_csv)
     
     log.info("matching patients...")
 
@@ -304,15 +306,16 @@ def check_columns(columns, expected_columns):
         if expected != actual:
             raise Error('expected column %d to be "%s" not "%s"' % (i, expected, actual))
 
-def import_q100(db, rr_no_postcode_map):
-    """ Import paeds patients into a temporary table """
+def import_covid(db, rr_no_postcode_map, covid_csv):
+    """ Import covid patients into a temporary table """
     
     # (rr_no, surname, forename, sex, dob, local_hosp_no, chi_no, nhs_no, hsc_no)
-    q100_patients = ukrr.process()
-    
+    # q100_patients = ukrr.process()
+    traced_patients = ukrr_trace.process(covid_csv)
+
     dummy_rr_no = 888800001
     
-    for line_no, row in enumerate(q100_patients, start=1):
+    for line_no, row in enumerate(traced_patients, start=1):
         # Ignore ones with an RR_No as these will be the RenalReg DB
         if row[0] in ('', None):
         
@@ -637,11 +640,16 @@ def main():
     parser.add_argument('--input', type=str, help="Specify alternate output")
     args = parser.parse_args()
     root = args.root
-    paeds_csv = os.path.join(args.root, PAEDS_CSV)
+    paeds_csv = os.path.join(args.root, PAEDS_CSV)    
     if not os.path.exists(paeds_csv):
         log.critical("{} does not exist".format(paeds_csv))
         sys.exit(1)
     log.info(f"importing paeds patients from {paeds_csv} into the db...")
+    covid_csv = os.path.join(args.root, COVID_CSV)
+    if not os.path.exists(covid_csv):
+        log.critical("{} does not exist".format(covid_csv))
+        sys.exit(1)
+    log.info(f"importing covid patients from {covid_csv} into the db...")
     input_filename = os.path.join(root, f"UKTR_DATA_{args.date}.csv")
     if args.input:
         input_filename = os.path.expanduser(args.input)
@@ -656,7 +664,7 @@ def main():
         paeds_reader = csv.reader(paeds_fh)
         uktr_reader = csv.reader(uktr_fh)
         output_writer = csv.writer(ukrr_fh)
-        run_match(db, paeds_reader, uktr_reader, output_writer)
+        run_match(db, paeds_reader, uktr_reader, output_writer, covid_csv)
 
 
 if __name__ == "__main__":

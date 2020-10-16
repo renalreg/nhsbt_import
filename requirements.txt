@@ -15,4 +15,5 @@ sqlparams
 -e git+ssh://git@jira.renalregistry.nhs.uk:7999/rr/rr_reports#egg=rr_reports
 -e git+ssh://git@jira.renalregistry.nhs.uk:7999/rr/rr_data#egg=rr_data
 -e git+ssh://git@jira.renalregistry.nhs.uk:7999/rr/rr_resources#egg=rr_resourceS
+-e git+ssh://git@bitbucket.renalregistry.nhs.uk:7999/tng/cohort_extract.git
 -e .
