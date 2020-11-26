@@ -90,4 +90,4 @@ for output_row in output_rows:
 
 output_f.write(batch.footer() + "\n")
 
-print output_filename
+print(output_filename)
