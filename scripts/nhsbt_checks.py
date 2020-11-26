@@ -108,23 +108,23 @@ def check(filename):
     duplicate_rr_nos = find_duplicates(rr_nos)
 
     for duplicate_rr_no in duplicate_rr_nos:
-        print 'duplicate RR number:', duplicate_rr_no
+        print('duplicate RR number:', duplicate_rr_no)
 
     nhs_nos = [x[21] for x in data if x[21] != '']
     duplicate_nhs_nos = find_duplicates(nhs_nos)
 
     for duplicate_nhs_no in duplicate_nhs_nos:
-        print 'duplicate NHS number:', duplicate_nhs_no
+        print('duplicate NHS number:', duplicate_nhs_no)
 
     changed_matches = [(x[0], x[15]) for x in data if x[0] != x[15] and x[0] != '' and not x[0].startswith('9999')]
 
     for old_rr_no, new_rr_no in changed_matches:
-        print 'changed match: {0} => {1}'.format(old_rr_no, new_rr_no or '(None)')
+        print('changed match: {0} => {1}'.format(old_rr_no, new_rr_no or '(None)'))
 
     bad_matches = [x for x in data if not is_good_match(x)]
 
     for bad_match in bad_matches:
-        print 'bad match: {}'.format(bad_match)
+        print('bad match: {}'.format(bad_match))
 
 
 if __name__ == '__main__':
