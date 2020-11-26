@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-def parse_req_line(line: str): -> str:
+def parse_req_line(line: str) -> str:
     package = line.split(";")[0]
     package = package.strip()
     
