@@ -147,8 +147,8 @@ def run(csv_reader, error_file: str='UKT_Errors.xls'):
             if nhs_no != ukt_patient.nhs_no:
                 ukt_patient.nhs_no = nhs_no
             if ukt_date_death != ukt_patient.ukr_date_death:
-                ukt_patent.ukt_date_death = ukt_date_death
-            if ukt_date_birth != ukt_patuient.ukt_date_birth:
+                ukt_patient.ukt_date_death = ukt_date_death
+            if ukt_date_birth != ukt_patient.ukt_date_birth:
                 ukt_patient.ukt_date_birth = ukt_date_birth
 
             match_type = None
