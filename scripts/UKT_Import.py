@@ -49,8 +49,8 @@ def run(csv_reader, error_file: str='UKT_Errors.xls'):
     SessionMaker = sessionmaker(bind=Engine)
     Session = SessionMaker()
 
-    TheExcelErrorWB = ExcelLib.ExcelWB()
-    TheExcelErrorWB.AddSheet(
+    excel_error_wb = ExcelLib.ExcelWB()
+    excel_error_wb.AddSheet(
         "Match Differences",
         (
             "UKTSSA_No",
@@ -70,18 +70,18 @@ def run(csv_reader, error_file: str='UKT_Errors.xls'):
         ),
         0
     )
-    TheExcelErrorWB.AddSheet(
+    excel_error_wb.AddSheet(
         "Patient Field Differences",
         ("UKTSSA_No", "Field", "File Value", "Previous Import Value"),
         0)
-    TheExcelErrorWB.AddSheet(
+    excel_error_wb.AddSheet(
         'Transplant Field Differences',
         ("UKTSSA_No", "Transplant_ID", "Field", "File Value", "Previous Import Value"),
         0)
-    TheExcelErrorWB.AddSheet("Invalid Postcodes", ("UKTSSA_No", "Message", "Value"), 0)
-    TheExcelErrorWB.AddSheet("Invalid NHS Numbers", ("UKTSSA_No", "Value"), 0)
-    TheExcelErrorWB.AddSheet("Missing Patients", ("UKTSSA_No", ), 0)
-    TheExcelErrorWB.AddSheet("Missing Transplants", ("Transplant_ID", ), 0)
+    excel_error_wb.AddSheet("Invalid Postcodes", ("UKTSSA_No", "Message", "Value"), 0)
+    excel_error_wb.AddSheet("Invalid NHS Numbers", ("UKTSSA_No", "Value"), 0)
+    excel_error_wb.AddSheet("Missing Patients", ("UKTSSA_No", ), 0)
+    excel_error_wb.AddSheet("Missing Transplants", ("Transplant_ID", ), 0)
 
     patient_list = []
     transplant_list = []
@@ -170,7 +170,7 @@ def run(csv_reader, error_file: str='UKT_Errors.xls'):
                     match_type = "Match to Patient not in Database"
 
             if match_type is not None:
-                TheExcelErrorWB.Sheets['Match Differences'].WriteRow(
+                excel_error_wb.Sheets['Match Differences'].WriteRow(
                     (
                         uktssa_no,
                         match_type,
@@ -359,7 +359,7 @@ def run(csv_reader, error_file: str='UKT_Errors.xls'):
 
                 if registration_end_date != ukt_transplant.registration_end_date:
                     if ukt_transplant.registration_end_date is not None:
-                        TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow(
+                        excel_error_wb.Sheets['Transplant Field Differences'].WriteRow(
                             (
                                 uktssa_no,
                                 registration_id,
@@ -457,7 +457,7 @@ def run(csv_reader, error_file: str='UKT_Errors.xls'):
     for row in results:
         if not (row[0] in patient_list):
             missing_patient_count = missing_patient_count + 1
-            TheExcelErrorWB.Sheets['Missing Patients'].WriteRow((row[0], row[1]))
+            excel_error_wb.Sheets['Missing Patients'].WriteRow((row[0], row[1]))
 
     log.warning("Missing Prior UKT Patients {}".format(missing_patient_count))
 
@@ -479,9 +479,9 @@ def run(csv_reader, error_file: str='UKT_Errors.xls'):
     for row in results:
         if row[0] not in transplant_list:
             log.warning("Missing Transplant {}".format(row[0]))
-            TheExcelErrorWB.Sheets['Missing Transplants'].WriteRow((row[0], ))
+            excel_error_wb.Sheets['Missing Transplants'].WriteRow((row[0], ))
     log.info("Complete error spreadsheet {}".format(error_file))
-    TheExcelErrorWB.Save(error_file)
+    excel_error_wb.Save(error_file)
 
 
 def main():
