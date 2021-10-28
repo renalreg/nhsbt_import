@@ -6,11 +6,11 @@ from rr.database.sqlserver import SQLServerDatabase
 
 db = SQLServerDatabase.connect()
 
-input_filename = r"C:\Users\nbj2301\Downloads\uktr_data_12JAN2015\UKTR_DATA_12JAN2015.csv"
+INPUT_FILENAME = r"C:\Users\nbj2301\Downloads\uktr_data_12JAN2015\UKTR_DATA_12JAN2015.csv"
 batch_number = next_nhs_tracing_batch_number(db)
 output_filename = "Tracing_%d.csv" % batch_number
 
-input_f = open(input_filename, "rb")
+input_f = open(INPUT_FILENAME, "rb")
 
 # Remove headers from input
 input_f.readline()
