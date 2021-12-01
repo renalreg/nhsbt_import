@@ -1,21 +1,22 @@
-import csv
 from datetime import datetime
+import argparse
+import csv
 import logging
 import logging.config
-import yaml
-import argparse
 import os
 import sys
+import yaml
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from UKT_Models import UKT_Patient, UKT_Transplant
-from RR_Models import RR_Patient, RR_Deleted_Patient
+from ukrr_models.nhsbt_models import UKT_Patient, UKT_Transplant
+from ukrr_models.rr_models import UKRR_Patient, UKRR_Deleted_Patient
+
 from rr_reports import ExcelLib
 
 
-def format_date(str_date):
+def format_date(str_date: str):
     date_formats = [
         '%d%b%Y',
         '%d-%b-%y'
@@ -32,7 +33,7 @@ def format_date(str_date):
     return formatted_date
 
 
-def run(csv_reader, error_file='UKT_Errors.xls'):
+def run(csv_reader, error_file: str='UKT_Errors.xls'):
     log = logging.getLogger('ukt_import')
     driver = 'SQL+Server+Native+Client+11.0'
     Engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
@@ -48,8 +49,8 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
     SessionMaker = sessionmaker(bind=Engine)
     Session = SessionMaker()
 
-    TheExcelErrorWB = ExcelLib.ExcelWB()
-    TheExcelErrorWB.AddSheet(
+    excel_error_wb = ExcelLib.ExcelWB()
+    excel_error_wb.AddSheet(
         "Match Differences",
         (
             "UKTSSA_No",
@@ -69,142 +70,143 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
         ),
         0
     )
-    TheExcelErrorWB.AddSheet(
+    excel_error_wb.AddSheet(
         "Patient Field Differences",
         ("UKTSSA_No", "Field", "File Value", "Previous Import Value"),
         0)
-    TheExcelErrorWB.AddSheet(
+    excel_error_wb.AddSheet(
         'Transplant Field Differences',
         ("UKTSSA_No", "Transplant_ID", "Field", "File Value", "Previous Import Value"),
         0)
-    TheExcelErrorWB.AddSheet("Invalid Postcodes", ("UKTSSA_No", "Message", "Value"), 0)
-    TheExcelErrorWB.AddSheet("Invalid NHS Numbers", ("UKTSSA_No", "Value"), 0)
-    TheExcelErrorWB.AddSheet("Missing Patients", ("UKTSSA_No", ), 0)
-    TheExcelErrorWB.AddSheet("Missing Transplants", ("Transplant_ID", ), 0)
+    excel_error_wb.AddSheet("Invalid Postcodes", ("UKTSSA_No", "Message", "Value"), 0)
+    excel_error_wb.AddSheet("Invalid NHS Numbers", ("UKTSSA_No", "Value"), 0)
+    excel_error_wb.AddSheet("Missing Patients", ("UKTSSA_No", ), 0)
+    excel_error_wb.AddSheet("Missing Transplants", ("Transplant_ID", ), 0)
 
-    PatientList = list()
-    TransplantList = list()
+    patient_list = []
+    transplant_list = []
 
-    for line_number, Row in enumerate(csv_reader, start=2):
+    for line_number, row in enumerate(csv_reader, start=2):
         log.info("on line {}".format(line_number))
-        Row = list(Row)
-        for i in range(0, len(Row)):
-            if isinstance(Row[i], str):
-                Row[i] = Row[i]
+        row = list(row)
 
-        # Empty Strings are needed in places here as that's what SQLAlachemy
-        # appears to be returning as Null for String fields
-
-        UKTSSA_No = int(Row[0].strip())
-        if UKTSSA_No in (0, ''):
-            UKTSSA_No = None
+        if uktssa_no in (0, '', None):
+            uktssa_no = None
         else:
-            UKTSSA_No = int(UKTSSA_No)
-            PatientList.append(UKTSSA_No)
+            uktssa_no = int(uktssa_no)
+            patient_list.append(uktssa_no)
 
-        RR_No = Row[1].replace('/', '').strip()
-        if RR_No in ('', 0):
-            RR_No = None
+        rr_no = row[1].replace('/', '').strip()
+        if rr_no in ('', 0):
+            rr_no = None
         else:
-            RR_No = int(RR_No)
+            rr_no = int(rr_no)
 
         # Skip paed patients
-        if str(RR_No)[:4] == "9999":
+        if str(rr_no)[:4] == "9999":
             continue
         # Skip Q100 new patients
-        elif str(RR_No)[:4] == "8888":
+        elif str(rr_no)[:4] == "8888":
             continue
 
-        Surname = None
-        Forename = None
-        Sex = None
-        Post_Code = None
-        New_NHS_No = None
+        # NOTE: A lot of this still as it was when
+        # NHSBT supplied demographics. As there is
+        # the suggestion that this might resume
+        # the code is intentionally left with
+        # the same logic.
+        # You could probably make this configurable.
 
-        ukt_date_death = Row[2]
+        surname = None
+        forename = None
+        sex = None
+        post_code = None
+        nhs_no = None
+
+        ukt_date_death = row[2]
         if ukt_date_death in ('', 0):
             ukt_date_death = None
         else:
             ukt_date_death = format_date(ukt_date_death)
 
-        UKT_Date_Birth = None
+        ukt_date_birth = None
 
-        Results = Session.query(UKT_Patient).filter_by(UKTSSA_No=UKTSSA_No).all()
+        results = Session.query(UKT_Patient).filter_by(uktssa_no=uktssa_no).all()
 
-        if len(Results) == 1:
-            log.info("UKT Patient {} found in database".format(UKTSSA_No))
-            TheUKTPatient = Results[0]
+        if len(results) == 1:
+            log.info("UKT Patient {} found in database".format(uktssa_no))
+            ukt_patient = results[0]
             log.info("Updating record")
-            if Surname != TheUKTPatient.Surname:
-                TheUKTPatient.Surname = Surname
-            if Forename != TheUKTPatient.Forename:
-                TheUKTPatient.Forename = Forename
-            if Sex != TheUKTPatient.Sex:
-                TheUKTPatient.Sex = Sex
-            if Post_Code != TheUKTPatient.Post_Code:
-                TheUKTPatient.Post_Code = Post_Code
-            if New_NHS_No != TheUKTPatient.New_NHS_No:
-                TheUKTPatient.New_NHS_No = New_NHS_No
-            if ukt_date_death != TheUKTPatient.UKT_Date_Death:
-                TheUKTPatient.ukt_date_death = ukt_date_death
-            if UKT_Date_Birth != TheUKTPatient.UKT_Date_Birth:
-                TheUKTPatient.UKT_Date_Birth = UKT_Date_Birth
+            if surname != ukt_patient.surname:
+                ukt_patient.surname = surname
+            if forename != ukt_patient.forename:
+                ukt_patient.forename = forename
+            if sex != ukt_patient.sex:
+                ukt_patient.sex = sex
+            if post_code != ukt_patient.post_code:
+                ukt_patient.post_code = post_code
+            if nhs_no != ukt_patient.nhs_no:
+                ukt_patient.nhs_no = nhs_no
+            if ukt_date_death != ukt_patient.ukr_date_death:
+                ukt_patient.ukt_date_death = ukt_date_death
+            if ukt_date_birth != ukt_patient.ukt_date_birth:
+                ukt_patient.ukt_date_birth = ukt_date_birth
 
-            MatchType = None
+            match_type = None
+
             # RR_No here comes from the matched file
-            if RR_No != TheUKTPatient.RR_No \
-                    and (TheUKTPatient.RR_No is not None or RR_No is not None):
-                MatchType = "Match Difference"
-            elif RR_No is not None and TheUKTPatient.RR_No is None:
+            if rr_no != ukt_patient.rr_no \
+                    and (ukt_patient.rr_no is not None or rr_no is not None):
+                match_type = "Match Difference"
+            elif rr_no is not None and ukt_patient.rr_no is None:
                 # This should never happen as we now can't load the unmatched records.
-                MatchType = "New Match"
+                match_type = "New Match"
             try:
-                TheRRPatient = Session.query(RR_Patient).filter_by(RR_No=RR_No).all()[0]
+                rr_patient = Session.query(UKRR_Patient).filter_by(rr_no=rr_no).all()[0]
             except Exception:
                 try:
-                    TheRRPatient = Session.query(RR_Deleted_Patient).filter_by(RR_No=RR_No).all()[0]
-                    MatchType = "Match to Deleted Patient"
+                    rr_patient = Session.query(UKRR_Deleted_Patient).filter_by(rr_no=rr_no).all()[0]
+                    match_type = "Match to Deleted Patient"
                 except Exception:
-                    MatchType = "Match to Patient not in Database"
+                    match_type = "Match to Patient not in Database"
 
-            if MatchType is not None:
-                TheExcelErrorWB.Sheets['Match Differences'].WriteRow(
+            if match_type is not None:
+                excel_error_wb.Sheets['Match Differences'].WriteRow(
                     (
-                        UKTSSA_No,
-                        MatchType,
-                        RR_No,
-                        Surname,
-                        Forename,
-                        Sex,
-                        UKT_Date_Birth,
-                        New_NHS_No,
-                        TheRRPatient.RR_No,
-                        TheRRPatient.Surname,
-                        TheRRPatient.Forename,
-                        TheRRPatient.Sex,
-                        TheRRPatient.Date_Birth,
-                        TheRRPatient.New_NHS_No
+                        uktssa_no,
+                        match_type,
+                        rr_no,
+                        surname,
+                        forename,
+                        sex,
+                        ukt_date_birth,
+                        nhs_no,
+                        rr_patient.rr_no,
+                        rr_patient.surname,
+                        rr_patient.forename,
+                        rr_patient.sex,
+                        rr_patient.date_birth,
+                        rr_patient.nhs_no
                     )
                 )
             # Update the RR_No
-            if RR_No is not None and RR_No != TheUKTPatient.RR_No:
-                TheUKTPatient.RR_No = RR_No
-        elif len(Results) == 0:
+            if rr_no is not None and rr_no != ukt_patient.rr_no:
+                ukt_patient.rr_no = rr_no
+        elif len(results) == 0:
             log.info("Add patient")
-            ThePatient = UKT_Patient(
-                UKTSSA_No=UKTSSA_No,
-                Surname=Surname,
-                Forename=Forename,
-                Sex=Sex,
-                Post_Code=Post_Code,
-                New_NHS_No=New_NHS_No,
-                RR_No=RR_No,
-                UKT_Date_Death=ukt_date_death,
-                UKT_Date_Birth=UKT_Date_Birth
+            ukt_patient = UKT_Patient(
+                uktssa_no=uktssa_no,
+                surname=surname,
+                forename=forename,
+                sex=sex,
+                post_code=post_code,
+                nhs_no=nhs_no,
+                rr_no=rr_no,
+                ukt_date_death=ukt_date_death,
+                ukt_date_birth=ukt_date_birth
             )
-            Session.add(ThePatient)
+            Session.add(ukt_patient)
         else:
-            log.error("{} in the database multiple times".format(UKTSSA_No))
+            log.error("{} in the database multiple times".format(uktssa_no))
 
         # Transplants
         # for x in (15, 26, 37, 48, 59, 70): - 2011 file -
@@ -217,233 +219,231 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
         # More fields added in October 2016
         for i, x in enumerate((3, 22, 41, 60, 79, 98)):
 
-            Registration_ID = str(UKTSSA_No) + "_" + str(i + 1)
+            registration_id = str(uktssa_no) + "_" + str(i + 1)
 
-            Registration_Date = Row[x]  # 1
+            registration_date = row[x]  # 1
             x += 1
-            if Registration_Date in ('', None):
-                log.debug("No registration date for {}".format(Registration_ID))
+            if registration_date in ('', None):
+                log.debug("No registration date for {}".format(registration_id))
                 continue
-            Registration_Date = format_date(Registration_Date)
+            registration_date = format_date(registration_date)
 
-            Registration_Date_Type = Row[x]  # 2
+            registration_date_type = row[x]  # 2
             x += 1
-            if Registration_Date_Type in ('', None):
-                Registration_Date_Type = ''
+            if registration_date_type in ('', None):
+                registration_date_type = ''
 
-            Registration_End_Status = Row[x]  # 3
+            registration_end_status = row[x]  # 3
             x += 1
-            if Registration_End_Status in ('', None):
-                Registration_End_Status = ''
+            if registration_end_status in ('', None):
+                registration_end_status = ''
 
-            Transplant_Consideration = Row[x]  # 4
+            transplant_consideration = row[x]  # 4
             x += 1
-            if Transplant_Consideration in ('', None):
-                Transplant_Consideration = ''
+            if transplant_consideration in ('', None):
+                transplant_consideration = ''
 
-            UKT_SUSPENSION = Row[x]  # 5
+            ukt_suspension = row[x]  # 5
             x += 1
-            if UKT_SUSPENSION in('', None):
-                UKT_SUSPENSION = ''
+            if ukt_suspension in('', None):
+                ukt_suspension = ''
 
-            Registration_End_Date = Row[x]  # 6
+            registration_end_date = row[x]  # 6
             x += 1
-            if Registration_End_Date in ('', None):
-                Registration_End_Date = None
+            if registration_end_date in ('', None):
+                registration_end_date = None
             else:
-                Registration_End_Date = format_date(Registration_End_Date)
+                registration_end_date = format_date(registration_end_date)
 
-            Transplant_ID = Row[x]  # 7
+            transplant_id = row[x]  # 7
             x += 1
-            if Transplant_ID in ('', None):
-                Transplant_ID = None
+            if transplant_id in ('', None):
+                transplant_id = None
             else:
-                Transplant_ID = int(Transplant_ID)
+                transplant_id = int(transplant_id)
 
-            TransplantList.append(Registration_ID)
+            transplant_list.append(registration_id)
 
-            Transplant_Date = Row[x]  # 8
+            transplant_date = row[x]  # 8
             x += 1
-            if Transplant_Date in ('', None):
-                Transplant_Date = None
+            if transplant_date in ('', None):
+                transplant_date = None
             else:
-                try:
-                    Transplant_Date = format_date(Transplant_Date)
-                except Exception:
-                    raise
+                transplant_date = format_date(transplant_date)
 
-            Transplant_Type = Row[x]  # 9
-            x += 1
-            if Transplant_Type in ('', None):
-                Transplant_Type = ''
 
-            Transplant_Sex = Row[x]  # 10
+            transplant_type = row[x]  # 9
             x += 1
-            if Transplant_Sex in ('', None):
-                Transplant_Sex = ''
+            if transplant_type in ('', None):
+                transplant_type = ''
 
-            Transplant_Relationship = Row[x]  # 11
+            transplant_sex = row[x]  # 10
             x += 1
-            if Transplant_Relationship in ('', None):
-                Transplant_Relationship = ''
+            if transplant_sex in ('', None):
+                transplant_sex = ''
 
-            Transplant_Organ = Row[x]  # 12
+            transplant_relationship = row[x]  # 11
             x += 1
-            if Transplant_Organ in ('', None):
-                Transplant_Organ = ''
+            if transplant_relationship in ('', None):
+                transplant_relationship = ''
 
-            Transplant_Unit = Row[x]  # 13
+            transplant_organ = row[x]  # 12
             x += 1
-            if Transplant_Unit in ('', None):
-                Transplant_Unit = ''
+            if transplant_organ in ('', None):
+                transplant_organ = ''
 
-            UKT_Fail_Date = Row[x]  # 14
+            transplant_unit = row[x]  # 13
             x += 1
-            if UKT_Fail_Date in ('', None):
-                UKT_Fail_Date = None
+            if transplant_unit in ('', None):
+                transplant_unit = ''
+
+            ukt_fail_date = row[x]  # 14
+            x += 1
+            if ukt_fail_date in ('', None):
+                ukt_fail_date = None
             else:
-                UKT_Fail_Date = format_date(UKT_Fail_Date)
+                ukt_fail_date = format_date(ukt_fail_date)
 
-            Transplant_Dialysis = Row[x]  # 15
+            transplant_dialysis = row[x]  # 15
             x += 1
-            if Transplant_Dialysis in ('', None):
-                Transplant_Dialysis = ''
+            if transplant_dialysis in ('', None):
+                transplant_dialysis = ''
 
-            CIT_Mins = Row[x]  # 16
+            cit_mins = row[x]  # 16
             x += 1
-            if CIT_Mins in ('', None):
-                CIT_Mins = ''
+            if cit_mins in ('', None):
+                cit_mins = ''
 
-            HLA_Mismatch = Row[x]  # 17
+            hla_mismatch = row[x]  # 17
             x += 1
-            if HLA_Mismatch in ('', None):
-                HLA_Mismatch = ''
+            if hla_mismatch in ('', None):
+                hla_mismatch = ''
 
-            Cause_Of_Failure = Row[x]  # 18
+            cause_of_failure = row[x]  # 18
             x += 1
-            if Cause_Of_Failure in ('', None):
-                Cause_Of_Failure = ''
+            if cause_of_failure in ('', None):
+                cause_of_failure = ''
 
-            Cause_Of_Failure_Text = Row[x]  # 19
+            cause_of_failure_text = row[x]  # 19
             x += 1
-            if Cause_Of_Failure_Text in('', None):
-                Cause_Of_Failure_Text = ''
+            if cause_of_failure_text in ('', None):
+                cause_of_failure_text = ''
 
-            Results = Session.query(UKT_Transplant).filter_by(Registration_ID=Registration_ID).all()
+            results = Session.query(UKT_Transplant).filter_by(registration_id=registration_id).all()
 
             # Record exists - update it
-            if len(Results) > 0:
+            if len(results) > 0:
 
-                TheTransplant = Results[0]
+                ukt_transplant = results[0]
                 log.info("Updating record")
                 # No need to update Registration ID as it was used
                 # for matching. Or UKTSSA_No as they're related.
 
-                if (RR_No != TheTransplant.RR_No):
-                    TheTransplant.RR_No = RR_No
+                if (rr_no != ukt_transplant.rr_no):
+                    ukt_transplant.rr_no = rr_no
 
-                if Registration_Date != TheTransplant.Registration_Date:
-                    TheTransplant.Registration_Date = Registration_Date
+                if registration_date != ukt_transplant.registration_date:
+                    ukt_transplant.registration_date = registration_date
 
-                if Registration_Date_Type != TheTransplant.Registration_Date_Type:
-                    TheTransplant.Registration_Date_Type = Registration_Date_Type
+                if registration_date_type != ukt_transplant.registration_date_type:
+                    ukt_transplant.registration_date_type = registration_date_type
 
-                if Registration_End_Status != TheTransplant.Registration_End_Status:
-                    TheTransplant.Registration_End_Status = Registration_End_Status
+                if registration_end_status != ukt_transplant.registration_end_status:
+                    ukt_transplant.registration_end_status = registration_end_status
 
-                if Transplant_Consideration != TheTransplant.Transplant_Consideration:
-                    TheTransplant.Transplant_Consideration = Transplant_Consideration
+                if transplant_consideration != ukt_transplant.transplant_consideration:
+                    ukt_transplant.transplant_consideration = transplant_consideration
 
-                if UKT_SUSPENSION != TheTransplant.UKT_SUSPENSION:
-                    TheTransplant.UKT_SUSPENSION = UKT_SUSPENSION
+                if ukt_suspension != ukt_transplant.ukt_suspension:
+                    ukt_transplant.ukt_suspension = ukt_suspension
 
-                if Registration_End_Date != TheTransplant.Registration_End_Date:
-                    if TheTransplant.Registration_End_Date is not None:
-                        TheExcelErrorWB.Sheets['Transplant Field Differences'].WriteRow(
+                if registration_end_date != ukt_transplant.registration_end_date:
+                    if ukt_transplant.registration_end_date is not None:
+                        excel_error_wb.Sheets['Transplant Field Differences'].WriteRow(
                             (
-                                UKTSSA_No,
-                                Registration_ID,
+                                uktssa_no,
+                                registration_id,
                                 "Registration End Date",
-                                Registration_End_Date,
-                                TheTransplant.Registration_End_Date
+                                registration_end_date,
+                                ukt_transplant.registration_end_date
                             )
                         )
-                    TheTransplant.Registration_End_Date = Registration_End_Date
+                    ukt_transplant.registration_end_date = registration_end_date
 
-                if Transplant_ID != TheTransplant.Transplant_ID:
-                    TheTransplant.Transplant_ID = Transplant_ID
+                if transplant_id != ukt_transplant.transplant_id:
+                    ukt_transplant.transplant_id = transplant_id
 
-                if Transplant_Date != TheTransplant.Transplant_Date:
-                    TheTransplant.Transplant_Date = Transplant_Date
+                if transplant_date != ukt_transplant.transplant_date:
+                    ukt_transplant.transplant_date = transplant_date
 
-                if Transplant_Type != TheTransplant.Transplant_Type:
-                    TheTransplant.Transplant_Type = Transplant_Type
+                if transplant_type != ukt_transplant.transplant_type:
+                    ukt_transplant.transplant_type = transplant_type
 
-                if Transplant_Sex != TheTransplant.Transplant_Sex:
-                    TheTransplant.Transplant_Sex = Transplant_Sex
+                if transplant_sex != ukt_transplant.transplant_sex:
+                    ukt_transplant.transplant_sex = transplant_sex
 
-                if Transplant_Relationship != TheTransplant.Transplant_Relationship:
-                    TheTransplant.Transplant_Relationship = Transplant_Relationship
+                if transplant_relationship != ukt_transplant.transplant_relationship:
+                    ukt_transplant.transplant_relationship = transplant_relationship
 
-                if Transplant_Organ != TheTransplant.Transplant_Organ:
-                    TheTransplant.Transplant_Organ = Transplant_Organ
+                if transplant_organ != ukt_transplant.transplant_organ:
+                    ukt_transplant.transplant_organ = transplant_organ
 
                 # TODO: This might benefit from all being converted to ASCII
-                if Transplant_Unit != TheTransplant.Transplant_Unit:
-                    TheTransplant.Transplant_Unit = Transplant_Unit
+                if transplant_unit != ukt_transplant.transplant_unit:
+                    ukt_transplant.transplant_unit = transplant_unit
 
-                if UKT_Fail_Date != TheTransplant.UKT_Fail_Date:
-                    TheTransplant.UKT_Fail_Date = UKT_Fail_Date
+                if ukt_fail_date != ukt_transplant.ukt_fail_date:
+                    ukt_transplant.ukt_fail_date = ukt_fail_date
 
-                if Transplant_Dialysis != TheTransplant.Transplant_Dialysis:
-                    TheTransplant.Transplant_Dialysis = Transplant_Dialysis
+                if transplant_dialysis != ukt_transplant.transplant_dialysis:
+                    ukt_transplant.transplant_dialysis = transplant_dialysis
 
-                if CIT_Mins != TheTransplant.CIT_Mins:
-                    TheTransplant.CIT_Mins = CIT_Mins
+                if cit_mins != ukt_transplant.cit_mins:
+                    ukt_transplant.cit_mins = cit_mins
 
-                if HLA_Mismatch != TheTransplant.HLA_Mismatch:
-                    TheTransplant.HLA_Mismatch = HLA_Mismatch
+                if hla_mismatch != ukt_transplant.hla_mismatch:
+                    ukt_transplant.hla_mismatch = hla_mismatch
 
-                if Cause_Of_Failure != TheTransplant.Cause_Of_Failure:
-                    TheTransplant.Cause_Of_Failure = Cause_Of_Failure
+                if cause_of_failure != ukt_transplant.cause_of_failure:
+                    ukt_transplant.cause_of_failure = cause_of_failure
 
-                if Cause_Of_Failure_Text != TheTransplant.Cause_Of_Failure_Text:
-                    TheTransplant.Cause_Of_Failure_Text = Cause_Of_Failure_Text
+                if cause_of_failure_text != ukt_transplant.cause_of_failure_text:
+                    ukt_transplant.cause_of_failure_text = cause_of_failure_text
 
             # Mew Record
             else:
                 log.info("Add record to database")
-                TheTransplant = UKT_Transplant(
-                    UKTSSA_No=UKTSSA_No,
-                    RR_No=RR_No,
-                    Registration_ID=Registration_ID,
-                    Registration_Date=Registration_Date,
-                    Registration_Date_Type=Registration_Date_Type,
-                    Registration_End_Status=Registration_End_Status,
-                    Transplant_Consideration=Transplant_Consideration,
-                    UKT_SUSPENSION=UKT_SUSPENSION,
-                    Registration_End_Date=Registration_End_Date,
-                    Transplant_ID=Transplant_ID,
-                    Transplant_Date=Transplant_Date,
-                    Transplant_Type=Transplant_Type,
-                    Transplant_Sex=Transplant_Sex,
-                    Transplant_Relationship=Transplant_Relationship,
-                    Transplant_Organ=Transplant_Organ,
-                    Transplant_Unit=Transplant_Unit,
-                    UKT_Fail_Date=UKT_Fail_Date,
-                    Transplant_Dialysis=Transplant_Dialysis,
-                    CIT_Mins=CIT_Mins,
-                    HLA_Mismatch=HLA_Mismatch,
-                    Cause_Of_Failure=Cause_Of_Failure,
-                    Cause_Of_Failure_Text=Cause_Of_Failure_Text,
+                ukt_transplant = UKT_Transplant(
+                    uktssa_no=uktssa_no,
+                    rr_no=rr_no,
+                    registration_id=registration_id,
+                    registration_date=registration_date,
+                    registration_date_type=registration_date_type,
+                    registration_end_status=registration_end_status,
+                    transplant_consideration=transplant_consideration,
+                    ukt_suspension=ukt_suspension,
+                    registration_end_date=registration_end_date,
+                    transplant_id=transplant_id,
+                    transplant_date=transplant_date,
+                    transplant_type=transplant_type,
+                    transplant_sex=transplant_sex,
+                    transplant_relationship=transplant_relationship,
+                    transplant_organ=transplant_organ,
+                    transplant_unit=transplant_unit,
+                    ukt_fail_date=ukt_fail_date,
+                    transplant_dialysis=transplant_dialysis,
+                    cit_mins=cit_mins,
+                    hla_mismatch=hla_mismatch,
+                    cause_of_failure=cause_of_failure,
+                    cause_of_failure_text=cause_of_failure_text,
                 )
-                Session.add(TheTransplant)
+                Session.add(ukt_transplant)
 
     Session.commit()
 
     Cursor = Engine.connect()
 
-    SQLString = """
+    sql_string = """
     SELECT
         DISTINCT UKTSSA_NO, RR_NO
     FROM
@@ -451,17 +451,17 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
     WHERE
         RR_NO IS NOT NULL"""
 
-    results = Cursor.execute(SQLString).fetchall()
+    results = Cursor.execute(sql_string).fetchall()
 
-    MissingPatientCount = 0
+    missing_patient_count = 0
     for row in results:
-        if not (row[0] in PatientList):
-            MissingPatientCount = MissingPatientCount + 1
-            TheExcelErrorWB.Sheets['Missing Patients'].WriteRow((row[0], row[1]))
+        if not (row[0] in patient_list):
+            missing_patient_count = missing_patient_count + 1
+            excel_error_wb.Sheets['Missing Patients'].WriteRow((row[0], row[1]))
 
-    log.warning("Missing Prior UKT Patients {}".format(MissingPatientCount))
+    log.warning("Missing Prior UKT Patients {}".format(missing_patient_count))
 
-    SQLString = """
+    sql_string = """
     SELECT
         DISTINCT REGISTRATION_ID
     FROM
@@ -472,16 +472,16 @@ def run(csv_reader, error_file='UKT_Errors.xls'):
         RR_NO < 999900000
     """
 
-    Results = Cursor.execute(SQLString).fetchall()
+    results = Cursor.execute(sql_string).fetchall()
 
-    TransplantList = set(TransplantList)
+    transplant_list = set(transplant_list)
     # TODO: For Subsequent updates it may make sense to look for missing registrations
-    for Row in Results:
-        if Row[0] not in TransplantList:
-            log.warning("Missing Transplant {}".format(Row[0]))
-            TheExcelErrorWB.Sheets['Missing Transplants'].WriteRow((Row[0], ))
+    for row in results:
+        if row[0] not in transplant_list:
+            log.warning("Missing Transplant {}".format(row[0]))
+            excel_error_wb.Sheets['Missing Transplants'].WriteRow((row[0], ))
     log.info("Complete error spreadsheet {}".format(error_file))
-    TheExcelErrorWB.Save(error_file)
+    excel_error_wb.Save(error_file)
 
 
 def main():

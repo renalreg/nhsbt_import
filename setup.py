@@ -1,25 +1,18 @@
 from setuptools import setup, find_packages
 
-def parse_req_line(line: str) -> str:
-    package = line.split(";")[0]
-    package = package.strip()
-    
-    return package
-
-with open("requirements.txt") as f:
-    install_req = [parse_req_line(x) for x in f.readlines() if not x.startswith("-e")]
-
 setup(
     name='rr_ukt_import',
-    #version=rr_foo.__version__,
-    #long_description=rr_common.__doc__,
     author='UK Renal Registry',
     author_email='rrsystems@renalregistry.nhs.uk',
     url='https://www.renalreg.org/',
     packages=find_packages(),
     zip_safe=True,
-    install_requires=install_req,
-    #scripts=[
-    #    'scripts/foo.py',
-    #],
+    install_requires=[
+        "sqlalchemy>=1.3, <2",
+        "pyodbc>=4.0.30,<4.1; sys_platform == 'win32'",
+        "rr.database @ git+https://github.com/renalreg/rr_database.git",
+        "rr_common @ git+https://github.com/renalreg/rr_common.git",
+        "rr_reports @ git+https://github.com/renalreg/rr_reports.git",
+        "ukrr_models @ git+https://github.com/renalreg/ukrr_models.git",
+    ],
 )

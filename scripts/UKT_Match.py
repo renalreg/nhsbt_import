@@ -1,19 +1,21 @@
-import csv
-import time
-import os
-import sys
-
-from rr_database.mssql import MSSQLDatabase
-from rr_common.rr_general_utils import rr_str
-from rr_common.general_exceptions import Error
-from rr_common.nhs_numbers import RR_Validate_NHS_No
-from rr_ukt_import.dateutils import convert_datetime_string_to_datetime
-from rr_ukt_import import ukrr
 from datetime import datetime
+import argparse
+import csv
 import logging
 import logging.config
+import os
+import sys
+import time
 import yaml
-import argparse
+
+from rr_common.general_exceptions import Error
+from rr_common.nhs_numbers import RR_Validate_NHS_No
+from rr_common.rr_general_utils import rr_str
+from rr_database.mssql import MSSQLDatabase
+from rr_ukt_import import ukrr
+from rr_ukt_import.dateutils import convert_datetime_string_to_datetime
+
+
 
 PAEDS_CSV = "Q:/NHSBT/2020-06-25/1 Complete Database.csv"
 
@@ -314,6 +316,8 @@ def import_q100(db, rr_no_postcode_map):
 
     # process return a list of all patients found in Q100 files
     # (rr_no, surname, forename, sex, dob, local_hosp_no, chi_no, nhs_no, hsc_no)
+
+    # TODO: This should be swapped for the cohort_extract version.
     q100_patients = ukrr.process()
 
     dummy_rr_no = 888800001
