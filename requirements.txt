@@ -15,4 +15,3 @@ sqlparams==1.1.2
 -e git+ssh://git@github.com/renalreg/rr_reports.git#egg=rr_reports
 -e git+ssh://git@github.com/renalreg/rr_data.git#egg=rr_data
 -e git+ssh://git@github.com/renalreg/rr_resources.git#egg=rr_resources
--e .
