@@ -17,3 +17,6 @@ sqlparams==1.1.2
 -e git+ssh://git@github.com/renalreg/rr_resources.git#egg=rr_resources
 -e git+ssh://git@github.com/renalreg/ukrr_models.git#egg=ukrr_models
 -e git+ssh://git@github.com/renalreg/rr_rrtf.git#egg=rr_rrtf
+
+-e git+ssh://git@github.com/renalreg/cohort_extract.git#egg=ukrdc_cohort_extract
+-e git+ssh://git@github.com/renalreg/ukrdc_database.git#egg=ukrdc_database
