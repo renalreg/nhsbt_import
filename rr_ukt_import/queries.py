@@ -15,24 +15,6 @@ postcode_query = """
             ROWNUMBER = 1
     """
 
-identifier_query = """
-        SELECT
-            RR_NO,
-            SURNAME,
-            FORENAME,
-            SEX,
-            DATE_BIRTH,
-            NULL,
-            NULL,
-            CHI_NO,
-            NEW_NHS_NO,
-            HSC_NO,
-            UKTSSA_NO,
-            NULL          
-        FROM
-            PATIENTS
-    """
-
 patients_query = """
             INSERT INTO #UKT_MATCH_PATIENTS (
                 UNDELETED_RR_NO,
@@ -65,3 +47,61 @@ patients_query = """
                 'PAEDIATRIC'
             )
         """
+
+identifier_query = """
+        SELECT
+            RR_NO,
+            SURNAME,
+            FORENAME,
+            SEX,
+            DATE_BIRTH,
+            NULL,
+            NULL,
+            CHI_NO,
+            NEW_NHS_NO,
+            HSC_NO,
+            UKTSSA_NO,
+            NULL          
+        FROM
+            PATIENTS
+    """
+
+new_identifier_query = """
+            SELECT
+                A.RR_NO,
+                CASE WHEN B.SURNAME IS NULL THEN A.SURNAME ELSE B.SURNAME END AS SURNAME,
+                CASE WHEN B.FORENAME IS NULL THEN A.FORENAME ELSE B.FORENAME END AS FORENAME,
+                SEX,
+                A.DATE_BIRTH,
+                NULL,
+                NULL,
+                CHI_NO,
+                NEW_NHS_NO,
+                HSC_NO,
+                UKTSSA_NO,
+                NULL,
+                'N' AS DELETED
+            FROM
+                PATIENTS A				
+            LEFT JOIN
+                PATIENT_ALIASES B ON A.RR_NO = B.RR_NO
+
+            UNION
+
+            SELECT
+                RR_NO,
+                SURNAME,
+                FORENAME,
+                SEX,
+                DATE_BIRTH,
+                NULL,
+                NULL,
+                CHI_NO,
+                NEW_NHS_NO,
+                HSC_NO,
+                UKTSSA_NO,
+                NULL,
+                'Y' AS DELETED
+            FROM
+                DELETED_PATIENTS A
+            """

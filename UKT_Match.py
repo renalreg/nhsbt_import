@@ -13,8 +13,8 @@ from rr_ukt_import.queries import identifier_query, postcode_query, new_identifi
 from rr_ukt_import.utils import (
     create_args,
     create_log,
-    NHSBT_CAST_LIST,
-    RR_CAST_LIST,
+    NHSBT_ALPHANUM_LIST,
+    RR_ALPHANUM_LIST,
     RR_COLUMNS,
 )
 
@@ -85,9 +85,12 @@ def extract_chi_and_hsc_from_nhs(df):
 
 
 def cast_df(df, cast_list):
-    for column in cast_list:
-        if "DOB" in column:
-            df[column] = pd.to_datetime(df[column], dayfirst=True)
+    for column in df.columns:
+        if "DOB" in column or "dod" in column:
+            df[column] = pd.to_datetime(df[column], errors="ignore", format="%d/%m/%Y")
+        elif column in cast_list:
+            df[column] = df[column].astype(object)
+            df[column] = df[column].str.upper()
         else:
             df[column] = df[column].astype(np.float64)
 
@@ -97,16 +100,66 @@ def cast_df(df, cast_list):
 def get_nhsbt_df(file_path):
     nhsbt_df = pd.read_csv(file_path, encoding="latin-1")
     nhsbt_df = extract_chi_and_hsc_from_nhs(nhsbt_df)
-    nhsbt_df = cast_df(nhsbt_df, NHSBT_CAST_LIST)
+    nhsbt_df = cast_df(nhsbt_df, NHSBT_ALPHANUM_LIST)
 
     return nhsbt_df
+
+
+def remove_unwanted_deleted(matched_df):
+    log.info("checking deleted patients...")
+
+    deleted_df = matched_df[matched_df.deleted_x == "Y"]
+    matched_df = matched_df[matched_df.deleted_x != "Y"]
+
+    deleted_df = pd.merge(
+        deleted_df,
+        matched_df,
+        how="outer",
+        suffixes=("", "_y"),
+        indicator=True,
+        on=["UKTR_ID"],
+    )
+
+    deleted_df = deleted_df[deleted_df["_merge"] == "left_only"][matched_df.columns]
+    deleted_df = deleted_df.drop_duplicates(subset=["UKTR_ID"])
+
+    matched_df = pd.concat([matched_df, deleted_df])
+    matched_df = matched_df.sort_values(by=["UKTR_ID"])
+    return matched_df.reset_index(drop=True)
+
+
+def remove_duplicates(matched_df):
+    matched_df = matched_df.drop_duplicates(
+        subset=["RR_ID", "RR_DOB", "RR_NHS_NO", "chi_no_x", "hsc_no_x"], keep="first"
+    )
+
+    duplicate_df = matched_df[matched_df["RR_ID"].isnull()]
+    matched_df = matched_df[~matched_df["RR_ID"].isnull()]
+
+    duplicate_df = pd.merge(
+        duplicate_df,
+        matched_df,
+        how="outer",
+        suffixes=("", "_y"),
+        indicator=True,
+        on=["RR_SURNAME", "RR_FORENAME"],
+    )
+
+    duplicate_df = duplicate_df[duplicate_df["_merge"] == "left_only"][
+        matched_df.columns
+    ]
+
+    matched_df = pd.concat([matched_df, duplicate_df])
+    matched_df = matched_df.sort_values(by=["UKTR_ID"])
+    return matched_df.reset_index(drop=True)
 
 
 def run_match(registry_patients_df, nhsbt_patients_df):
 
     log.info("building postcode map...")
     rr_no_postcode_map = populate_rr_no_postcode_map()
-    log.info("building matched frame...")
+
+    log.info("matching patients...")
 
     nhs_no_match_df = merge_df(
         nhsbt_patients_df, registry_patients_df, "UKTR_RNHS_NO", "RR_NHS_NO"
@@ -145,41 +198,12 @@ def run_match(registry_patients_df, nhsbt_patients_df):
         ]
     )
 
-    # This keeps the first row it finds which seems to always be coming
-    # from the patients table which is what we want. However this is assumed
     matched_df = matched_df.drop_duplicates(
         subset=["RR_ID", "RR_DOB", "RR_NHS_NO", "chi_no_x", "hsc_no_x"], keep="first"
     )
 
-    # TODO: Check to make sure that in cases where there is a match from
-    # a deleted record and a match from a non-deleted record we keep the non
-    # deleted. If only deleted match exists keep that as could of been deleted in error
-
-    deleted_df = matched_df[matched_df.deleted_x == "Y"]
-    matched_df = matched_df[matched_df.deleted_x != "Y"]
-
-    row_list = []
-
-    for index, row in deleted_df.iterrows():
-        if row.UKTR_ID not in matched_df.UKTR_ID:
-            print(f"{row.UKTR_ID} NOT IN matched {type(row.UKTR_ID)}")
-            row_list.append(row)
-        else:
-            print(row.UKTR_ID, type(row.UKTR_ID))
-
-    # row_list = [
-    #     row
-    #     for index, row in deleted_df.iterrows()
-    #     if row.UKTR_ID not in matched_df.UKTR_ID
-    # ]
-
-    deleted_df = pd.DataFrame(row_list)
-
-    deleted_df = deleted_df.drop_duplicates(subset=["UKTR_ID"])
-
-    # matched_df = matched_df[matched_df["UKTR_RR_ID"] == matched_df["RR_ID"]]
-
-    # TODO: Deal with deleted patients. Currently more in than there should be
+    matched_df = remove_unwanted_deleted(matched_df)
+    matched_df = remove_duplicates(matched_df)
 
     # This should fill our NHS number with CHI and HSC numbers where present
     # preference is NHS > CHI > HSC which might need changing depending on Scottish patients
@@ -194,12 +218,14 @@ def run_match(registry_patients_df, nhsbt_patients_df):
 
 def main():
     ### ----- Check files ----- ###
+    log.info("checking file paths...")
     input_file_path = build_and_check_file_path(args.root, f"UKTR_DATA_{args.date}.csv")
     paeds_file_path = build_and_check_file_path(args.root, PAEDS_CSV)
     ### ----- Set output file ----- ###
     output_filename = os.path.join(args.root, f"UKTR_DATA_{args.date}_MATCHED_test.csv")
     ### ----- Build dataframes ----- ###
     # TODO: This isn't getting patients from deleted table
+    log.info("collecting patients...")
     rr_df = pd.read_sql(new_identifier_query, conn.connection)
     rr_df.columns = RR_COLUMNS + ["deleted_x"]
 
@@ -207,11 +233,12 @@ def main():
     paeds_df.columns = RR_COLUMNS
 
     registry_patients_df = pd.concat([paeds_df, rr_df])
-    registry_patients_df = cast_df(registry_patients_df, RR_CAST_LIST)
+    registry_patients_df = cast_df(registry_patients_df, RR_ALPHANUM_LIST)
 
     nhsbt_patients_df = get_nhsbt_df(input_file_path)
 
     matched_df = run_match(registry_patients_df, nhsbt_patients_df)
+    log.info("writing file...")
     matched_df.to_csv(output_filename, index=False)
 
 

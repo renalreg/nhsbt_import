@@ -2,22 +2,33 @@ from logging import Logger
 import argparse
 import logging.config
 import yaml
-import pandas as pd
-from typing import List
 
-WHITELIST = {
-    "renalregnumber": "rrno",
-    "rrnum": "rrno",
-    "lastname": "surname",
-    "familyname": "surname",
-    "firstname": "surname",
-    "givenname": "surname",
-    "gender": "sex",
-    "dateofbirth": "dob",
-    "birthdate": "dob",
-    "dateofdeath": "dod",
-    "deathdate": "dod",
-}
+
+NHSBT_ALPHANUM_LIST = ["UKTR_RSURNAME", "UKTR_RFORENAME", "UKTR_RPOSTCODE"]
+
+RR_ALPHANUM_LIST = [
+    "RR_SURNAME",
+    "RR_FORENAME",
+    "RR_POSTCODE",
+    "bapn_no_x",
+    "deleted_x",
+]
+
+# Suffix of x to allow easy deletion
+RR_COLUMNS = [
+    "RR_ID",
+    "RR_SURNAME",
+    "RR_FORENAME",
+    "RR_SEX",
+    "RR_DOB",
+    "dod_x",
+    "bapn_no_x",
+    "chi_no_x",
+    "RR_NHS_NO",
+    "hsc_no_x",
+    "uktssa_no_x",
+    "RR_POSTCODE",
+]
 
 
 def create_args() -> argparse.Namespace:
@@ -33,47 +44,3 @@ def create_log() -> Logger:
         yaml.load(open("logconf.yaml", "r"), Loader=yaml.SafeLoader)
     )
     return logging.getLogger("ukt_match")
-
-
-def load_file(file):
-    """
-    Load a file into a dataframe if it is a csv or xlsx file
-
-    Args:
-        file (str): A file path
-
-    Raises:
-        RuntimeError: Raised if file doesn't have the correct extension
-
-    Returns:
-        Dataframe: The file as a dataframe
-    """
-    if file.endswith(".csv"):
-        # Had some issues with encoding so have included an option that seems to have fixed it
-        return pd.read_csv(file, encoding="latin-1")
-    elif file.endswith(".xlsx"):
-        return pd.read_excel(file)
-    else:
-        raise RuntimeError("File extension not recognized")
-
-
-def clean_headers(paeds_df):
-    """
-    Attempt to normalize the headers
-
-    Args:
-        paeds_df (Dataframe): Peads data frame taken from a file
-
-    Returns:
-        List: List of headers that have been stripped of white space, underscores and
-        are all lower case.
-    """
-    cleaned_headers: List[str] = []
-    columns = tuple(paeds_df.columns)
-
-    for col in columns:
-        clean_header = col.strip().lower().replace("_", " ").replace(" ", "")
-        if clean_header in WHITELIST:
-            clean_header = WHITELIST[clean_header]
-        cleaned_headers.append(clean_header)
-    return cleaned_headers
