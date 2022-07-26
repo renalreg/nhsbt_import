@@ -26,7 +26,7 @@ RR_COLUMNS = [
     "chi_no_x",
     "RR_NHS_NO",
     "hsc_no_x",
-    "uktssa_no_x",
+    "UKTSSA_NO",
     "RR_POSTCODE",
 ]
 
