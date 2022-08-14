@@ -1,26 +1,27 @@
 import os
 import sys
 from datetime import timedelta
+from difflib import get_close_matches
 from timeit import default_timer as timer
 from typing import Union
 
 import numpy as np
 import pandas as pd
-
 from rr_common.nhs_numbers import RR_Validate_NHS_No
 from rr_connection_manager.classes.sql_server_connection import SQLServerConnection
 from ukrdc.cohort_extract.csv_or_xlsx import extract_cohort_from_csv_or_xlsx
-from rr_ukt_import.queries import postcode_query, new_identifier_query
+
+from rr_ukt_import.queries import new_identifier_query, postcode_query
 from rr_ukt_import.utils import (
-    create_args,
-    create_log,
     NHSBT_ALPHANUM_LIST,
     RR_ALPHANUM_LIST,
     RR_COLUMNS,
+    create_args,
+    create_log,
 )
 
 PAEDS_CSV = "1 Complete Database.csv"
-COVID_CSV = "covid_export.csv"
+COVID_CSV = "covid_file_fixed.csv"
 
 
 def build_and_check_file_path(root: str, file_name: str) -> str:
@@ -97,7 +98,6 @@ def merge_df(
     return df1.merge(df2, left_on=left_match, right_on=right_match, how=how)
 
 
-# TODO: Use this to add more postcodes
 def populate_rr_no_postcode_map() -> dict:
     """
     Build mapping between RR no and latest postcode
@@ -206,7 +206,9 @@ def remove_unwanted_deleted(matched_df) -> pd.DataFrame:
     deleted_df = deleted_df[deleted_df["_merge"] == "left_only"][matched_df.columns]
     deleted_df = deleted_df.drop_duplicates(subset=["UKTR_ID"])
 
-    matched_df = pd.concat([matched_df, deleted_df])
+    if not deleted_df.empty:
+        matched_df = pd.concat([matched_df, deleted_df])
+
     matched_df = matched_df.sort_values(by=["UKTR_ID"])
     return matched_df.reset_index(drop=True)
 
@@ -253,12 +255,15 @@ def remove_duplicates(matched_df: pd.DataFrame) -> pd.DataFrame:
     return matched_df.reset_index(drop=True)
 
 
-def add_postcodes(df):
-    log.info("building postcode map...")
-    postcode_map = populate_rr_no_postcode_map()
-    log.info("adding postcodes...")
-    for rr_number, postcode in postcode_map:
-        df.loc
+def add_postcodes(df, postcode_map):
+    # TODO: this might be quicker with Series.map()
+    # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.map.html
+
+    for index, row in df.iterrows():
+        rr_number = row["RR_ID"]
+        if rr_number in postcode_map.keys():
+            df.loc[index, "RR_POSTCODE"] = postcode_map[rr_number]
+    return df
 
 
 def run_match(
@@ -268,7 +273,8 @@ def run_match(
     Uses a range of criteria to make matches between NHSBT patients and RR patients. The
     idea here is to return as many different types of match as possible and then removing duplicates.
     This seem to be more efficient then trying to iterate through individual rows and picking
-    out specific matches.
+    out specific matches. Fuzzy and double barrel matching grab a few fringe case where there is
+    no match on NHS number and the demo match misses because of slight differences.
 
     Args:
         registry_patients_df (pd.DataFrame): Registry patients
@@ -277,8 +283,6 @@ def run_match(
     Returns:
         pd.DataFrame: Matched patients with one row per patient
     """
-
-    log.info("matching patients...")
 
     nhs_no_match_df = merge_df(
         nhsbt_patients_df, registry_patients_df, "UKTR_RNHS_NO", "RR_NHS_NO"
@@ -299,12 +303,7 @@ def run_match(
         nhsbt_patients_df, registry_patients_df, "UKTR_RR_ID", "RR_ID"
     )
 
-    demographics_match_df = merge_df(
-        nhsbt_patients_df,
-        registry_patients_df,
-        ["UKTR_RDOB", "UKTR_RFORENAME", "UKTR_RSURNAME"],
-        ["RR_DOB", "RR_FORENAME", "RR_SURNAME"],
-    )
+    demographics_match_df = demo_matching(nhsbt_patients_df, registry_patients_df)
 
     matched_df = pd.concat(
         [
@@ -317,6 +316,22 @@ def run_match(
         ]
     )
 
+    # reduced the data set by getting only unmatched nhsbt patients
+    unmatched_nhsbt_df = nhsbt_patients_df[
+        (~nhsbt_patients_df["UKTR_ID"].isin(matched_df["UKTR_ID"]))
+    ]
+
+    fuzzy_match_df = fuzzy_demo_match(unmatched_nhsbt_df, registry_patients_df)
+
+    double_barrel_match_df = double_barrel_match(
+        unmatched_nhsbt_df, registry_patients_df
+    )
+
+    fringe_case_nhsbt_df = pd.concat([fuzzy_match_df, double_barrel_match_df])
+
+    if not fringe_case_nhsbt_df.empty:
+        matched_df = pd.concat([matched_df, fringe_case_nhsbt_df])
+
     matched_df = remove_unwanted_deleted(matched_df)
     matched_df = remove_duplicates(matched_df)
 
@@ -324,10 +339,158 @@ def run_match(
     # preference is NHS > CHI > HSC which might need changing depending on Scottish patients
     matched_df.RR_NHS_NO.fillna(matched_df.chi_no_x, inplace=True)
     matched_df.RR_NHS_NO.fillna(matched_df.hsc_no_x, inplace=True)
+
+    # Back fill RR forenames and surnames with the original name to preserve them
+    matched_df["RR_FORENAME"] = matched_df["original_rr_forename_x"]
+    matched_df["RR_SURNAME"] = matched_df["original_rr_surname_x"]
+    matched_df["UKTR_RFORENAME"] = matched_df["original_nhsbt_forename_x"]
+    matched_df["UKTR_RSURNAME"] = matched_df["original_nhsbt_surname_x"]
+
     # Remove any excess columns
     matched_df = matched_df.loc[:, ~matched_df.columns.str.contains("_x", case=False)]
 
     return matched_df.sort_values(by=["UKTR_ID"])
+
+
+def demo_matching(nhsbt_df, rr_df):
+    demographics_match_df = merge_df(
+        nhsbt_df,
+        rr_df,
+        ["UKTR_RDOB", "UKTR_RFORENAME", "UKTR_RSURNAME"],
+        ["RR_DOB", "RR_FORENAME", "RR_SURNAME"],
+    )
+
+    postcode_surname_match_df = merge_df(
+        nhsbt_df,
+        rr_df,
+        ["UKTR_RDOB", "UKTR_RSURNAME", "UKTR_RPOSTCODE"],
+        ["RR_DOB", "RR_SURNAME", "RR_POSTCODE"],
+    )
+
+    postcode_forename_match_df = merge_df(
+        nhsbt_df,
+        rr_df,
+        ["UKTR_RDOB", "UKTR_RFORENAME", "UKTR_RPOSTCODE"],
+        ["RR_DOB", "RR_FORENAME", "RR_POSTCODE"],
+    )
+
+    return pd.concat(
+        [demographics_match_df, postcode_surname_match_df, postcode_forename_match_df]
+    )
+
+
+def fuzzy_demo_match(nhsbt_df: pd.DataFrame, rr_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Takes the names (fore and sur) from the nhsbt data and looks for n closest matches in the rr_patients.
+    Currently n=5 however this can be tweaked if required in the get_close_matches function. This function
+    comes from difflib https://docs.python.org/3/library/difflib.html
+
+    Please note that this is very expensive in comparison with the rest of the script and only nets a very
+    fringe section of non matches.
+
+    Args:
+        nhsbt_df (pd.DataFrame): nhsbt patients
+        rr_df (pd.DataFrame): rr patients
+
+    Returns:
+        pd.DataFrame: a new dataframe with all nhsbt patient close matches
+    """
+    # TODO: Improved the speed if possible
+    # Fuzzy matching is slow and nets only a couple of extra matches
+
+    log.info("Starting fuzzy matching...")
+
+    rr_df = rr_df.dropna(subset=["RR_FORENAME", "RR_SURNAME"])
+    series_list = []
+
+    for _, row in nhsbt_df.iterrows():
+        if not pd.isna(row["UKTR_RSURNAME"]):
+            fuzzy_surname = row["UKTR_RSURNAME"]
+            surname_first_letter = fuzzy_surname[0]
+            surnames = rr_df.loc[
+                rr_df["RR_SURNAME"].str.startswith(surname_first_letter)
+            ]["RR_SURNAME"].drop_duplicates()
+            fuzzy_surname_matches = get_close_matches(fuzzy_surname, surnames, n=5)
+
+        for match in fuzzy_surname_matches:
+            fuzzy_row = row.copy()
+            fuzzy_row["UKTR_RSURNAME"] = match
+            series_list.append(fuzzy_row)
+
+        if not pd.isna(row["UKTR_RFORENAME"]):
+            fuzzy_forename = row["UKTR_RFORENAME"]
+            forename_first_letter = fuzzy_forename[0]
+            forenames = rr_df.loc[
+                rr_df["RR_FORENAME"].str.startswith(forename_first_letter)
+            ]["RR_FORENAME"].drop_duplicates()
+            fuzzy_forename_matches = get_close_matches(fuzzy_forename, forenames, n=5)
+
+        for match in fuzzy_forename_matches:
+            fuzzy_row = row.copy()
+            row["UKTR_RFORENAME"] = match
+            series_list.append(fuzzy_row)
+
+        nhsbt_df = pd.concat(series_list, axis=1).T
+
+    return demo_matching(nhsbt_df, rr_df)
+
+
+def double_barrel_match(nhsbt_df: pd.DataFrame, rr_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Looks at both data sets, finds names that contain white space, and assumes that indicates a double
+    barrel name. It then captures the first part of the name string and uses that to generate new possible
+    combos of names for matching.
+
+    Args:
+        nhsbt_df (pd.DataFrame): NHSBT patients
+        rr_df (pd.DataFrame): rr_patients
+
+    Returns:
+        pd.DataFrame: double barrels match dataframe
+    """
+    nhsbt_forename_double_df = nhsbt_df[
+        nhsbt_df["UKTR_RFORENAME"].str.contains(" ", na=False)
+    ]
+
+    split_forename_df = (
+        nhsbt_forename_double_df["UKTR_RFORENAME"].str.split().str[0].to_frame()
+    )
+
+    nhsbt_forename_double_df["UKTR_RFORENAME"] = split_forename_df["UKTR_RFORENAME"]
+
+    nhsbt_surname_double_df = nhsbt_df[
+        nhsbt_df["UKTR_RSURNAME"].str.contains(" ", na=False)
+    ]
+
+    split_surname_df = (
+        nhsbt_surname_double_df["UKTR_RSURNAME"].str.split().str[0].to_frame()
+    )
+
+    nhsbt_surname_double_df["UKTR_RSURNAME"] = split_surname_df["UKTR_RSURNAME"]
+
+    nhsbt_both_df = nhsbt_forename_double_df.copy()
+    nhsbt_both_df["UKTR_RSURNAME"] = split_surname_df["UKTR_RSURNAME"]
+    nhsbt_both_df["UKTR_RFORENAME"] = split_forename_df["UKTR_RFORENAME"]
+
+    # TODO: Repeating code is bad
+
+    rr_forename_double_df = rr_df[rr_df["RR_FORENAME"].str.contains(" ", na=False)]
+    split_forename_df = (
+        rr_forename_double_df["RR_FORENAME"].str.split().str[0].to_frame()
+    )
+    rr_forename_double_df["RR_FORENAME"] = split_forename_df["RR_FORENAME"]
+
+    rr_surname_double_df = rr_df[rr_df["RR_SURNAME"].str.contains(" ", na=False)]
+    split_surname_df = rr_surname_double_df["RR_SURNAME"].str.split().str[0].to_frame()
+    rr_surname_double_df["RR_SURNAME"] = split_surname_df["RR_SURNAME"]
+
+    nhsbt_df = pd.concat(
+        [nhsbt_df, nhsbt_forename_double_df, nhsbt_surname_double_df, nhsbt_both_df]
+    )
+
+    rr_df = pd.concat([rr_df, rr_forename_double_df, rr_surname_double_df])
+
+    return demo_matching(nhsbt_df, rr_df)
 
 
 def match_score(df: pd.DataFrame) -> pd.DataFrame:
@@ -426,8 +589,11 @@ def main():
 
     ### ----- Build raw patient dataframes ----- ###
     log.info("collecting patients...")
+    # TODO: This works but causes a warning message.
     rr_df = pd.read_sql(new_identifier_query, conn.connection)
-    rr_df.columns = RR_COLUMNS + ["deleted_x"]
+    rr_df.columns = RR_COLUMNS + [
+        "deleted_x",
+    ]
 
     paeds_df = pd.DataFrame(extract_cohort_from_csv_or_xlsx(paeds_file_path))
     paeds_df.columns = RR_COLUMNS
@@ -441,7 +607,20 @@ def main():
     nhsbt_patients_df = get_nhsbt_df(input_file_path)
     nhsbt_patients_df = cast_df(nhsbt_patients_df, NHSBT_ALPHANUM_LIST)
 
+    # To maintain original names after fuzzy and double barrel matching
+    registry_patients_df["original_rr_forename_x"] = registry_patients_df["RR_FORENAME"]
+    registry_patients_df["original_rr_surname_x"] = registry_patients_df["RR_SURNAME"]
+    nhsbt_patients_df["original_nhsbt_forename_x"] = nhsbt_patients_df["UKTR_RFORENAME"]
+    nhsbt_patients_df["original_nhsbt_surname_x"] = nhsbt_patients_df["UKTR_RSURNAME"]
+
+    ### ----- Add postcodes to RR patients ----- ###
+    log.info("building postcode map...")
+    postcode_map = populate_rr_no_postcode_map()
+    log.info("adding postcodes...")
+    # registry_patients_df = add_postcodes(registry_patients_df, postcode_map)
+
     ### ----- Match Patients ----- ###
+    log.info("matching patients...")
     matched_df = run_match(registry_patients_df, nhsbt_patients_df)
 
     ### ----- Write to CSV ----- ###
@@ -450,6 +629,7 @@ def main():
 
 
 if __name__ == "__main__":
+    pd.options.mode.chained_assignment = None
     start = timer()
     conn = SQLServerConnection(app="ukrdc_rrsqllive")
     log = create_log()
@@ -457,3 +637,8 @@ if __name__ == "__main__":
     main()
     end = timer()
     log.info(f"The script completed in {timedelta(seconds=end - start)}")
+
+# check_df3 = rr_df[
+#     (rr_df["RR_FORENAME"] == "LAURA JANE") & (rr_df["RR_SURNAME"] == "BRADY")
+# ]
+# print(check_df3)
