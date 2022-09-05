@@ -146,7 +146,7 @@ def cast_df(df: pd.DataFrame, cast_list: list) -> pd.DataFrame:
     Returns:
         pd.Dataframe: Dataframe with columns all cast to the same types
     """
-    # TODO: Deal with dd-mmm-YY format sent by NHSBT. Currently done manually
+    # TODO: [NHSBT-1] Deal with dd-mmm-YY format sent by NHSBT. Currently done manually
     for column in df.columns:
         if "DOB" in column or "dod" in column:
             df[column] = pd.to_datetime(df[column], errors="ignore", format="%d/%m/%Y")
@@ -256,7 +256,7 @@ def remove_duplicates(matched_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_postcodes(df, postcode_map):
-    # TODO: this might be quicker with Series.map()
+    # TODO: [NHSBT-2] this might be quicker with Series.map()
     # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.Series.map.html
 
     for index, row in df.iterrows():
@@ -395,7 +395,7 @@ def fuzzy_demo_match(nhsbt_df: pd.DataFrame, rr_df: pd.DataFrame) -> pd.DataFram
     Returns:
         pd.DataFrame: a new dataframe with all nhsbt patient close matches
     """
-    # TODO: Improved the speed if possible
+    # TODO: [NHSBT-3] Improved the speed if possible
     # Fuzzy matching is slow and nets only a couple of extra matches
 
     log.info("Starting fuzzy matching...")
@@ -472,7 +472,7 @@ def double_barrel_match(nhsbt_df: pd.DataFrame, rr_df: pd.DataFrame) -> pd.DataF
     nhsbt_both_df["UKTR_RSURNAME"] = split_surname_df["UKTR_RSURNAME"]
     nhsbt_both_df["UKTR_RFORENAME"] = split_forename_df["UKTR_RFORENAME"]
 
-    # TODO: Repeating code is bad
+    # TODO: [NHSBT-4] Repeating code is bad
 
     rr_forename_double_df = rr_df[rr_df["RR_FORENAME"].str.contains(" ", na=False)]
     split_forename_df = (
@@ -589,7 +589,7 @@ def main():
 
     ### ----- Build raw patient dataframes ----- ###
     log.info("collecting patients...")
-    # TODO: This works but causes a warning message.
+    # TODO: [NHSBT-5] This works but causes a warning message.
     rr_df = pd.read_sql(new_identifier_query, conn.connection)
     rr_df.columns = RR_COLUMNS + [
         "deleted_x",
@@ -617,7 +617,7 @@ def main():
     log.info("building postcode map...")
     postcode_map = populate_rr_no_postcode_map()
     log.info("adding postcodes...")
-    # registry_patients_df = add_postcodes(registry_patients_df, postcode_map)
+    registry_patients_df = add_postcodes(registry_patients_df, postcode_map)
 
     ### ----- Match Patients ----- ###
     log.info("matching patients...")
@@ -637,8 +637,3 @@ if __name__ == "__main__":
     main()
     end = timer()
     log.info(f"The script completed in {timedelta(seconds=end - start)}")
-
-# check_df3 = rr_df[
-#     (rr_df["RR_FORENAME"] == "LAURA JANE") & (rr_df["RR_SURNAME"] == "BRADY")
-# ]
-# print(check_df3)

@@ -8,3 +8,5 @@
 /venv36
 /myvenv
 /.vscode
+.env
+db_conf.json
