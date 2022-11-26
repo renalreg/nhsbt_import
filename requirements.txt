@@ -9,10 +9,10 @@ pyodbc==4.0.16
 future_fstrings==1.2.0
 pymssql<3.0
 sqlparams==1.1.2
--e git+ssh://git@jira.renalregistry.nhs.uk:7999/rr/rr_database#egg=rr.database
--e git+ssh://git@jira.renalregistry.nhs.uk:7999/rr/utils#egg=rr.utils
--e git+ssh://git@jira.renalregistry.nhs.uk:7999/rr/rr_common#egg=rr_common
--e git+ssh://git@jira.renalregistry.nhs.uk:7999/rr/rr_reports#egg=rr_reports
--e git+ssh://git@jira.renalregistry.nhs.uk:7999/rr/rr_data#egg=rr_data
--e git+ssh://git@jira.renalregistry.nhs.uk:7999/rr/rr_resources#egg=rr_resources
+-e git+ssh://git@github.com/renalreg/rr_database#egg=rr_database
+-e git+ssh://git@github.com/renalreg/utils#egg=rr.utils
+-e git+ssh://git@github.com/renalreg/rr_common#egg=rr_common
+-e git+ssh://git@github.com/renalreg/rr_reports#egg=rr_reports
+-e git+ssh://git@github.com/renalreg/rr_data#egg=rr_data
+-e git+ssh://git@github.com/renalreg/rr_resources#egg=rr_resources
 -e .
