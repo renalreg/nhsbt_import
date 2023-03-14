@@ -11,28 +11,17 @@ handlers:
         formatter: simple
         stream: ext://sys.stdout
 
-    ukt_match_file:
+    nhsbt_import_file:
         class: logging.handlers.RotatingFileHandler
         level: DEBUG
         formatter: simple
-        filename: logs/ukt_match.log
-        backupCount: 20
-
-    ukt_import_file:
-        class: logging.handlers.RotatingFileHandler
-        level: DEBUG
-        formatter: simple
-        filename: logs/ukt_import.log
+        filename: logs/nhsbt_import.log
         backupCount: 20
 
 loggers:
-  ukt_match:
-    level: INFO
-    handlers: [console, ukt_match_file]
-
-  ukt_import:
-    level: INFO
-    handlers: [console, ukt_import_file]
+    nhsbt_import:
+        level: INFO
+        handlers: [console, nhsbt_import_file]
 
 root:
     level: DEBUG
