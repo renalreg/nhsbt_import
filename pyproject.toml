@@ -9,7 +9,21 @@ packages = [{include = "nhsbt_import"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
+pyyaml = "^6.0"
+sqlalchemy = "^2.0.6"
+pandas = "^1.5.3"
+ukrr-models = {git = "https://github.com/renalreg/ukrr_models.git"}
+pyodbc = "^4.0.35"
 
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.1.0"
+
+
+[tool.poetry.group.test.dependencies]
+pytest = "^7.2.2"
+faker = "^17.6.0"
+pytest-mock = "^3.10.0"
 
 [build-system]
 requires = ["poetry-core"]

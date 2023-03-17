@@ -1,5 +1,11 @@
 {
     "cSpell.words": [
-        "nhsbt"
-    ]
+        "iterrows",
+        "logconf",
+        "nhsbt",
+        "notna",
+        "sqlalchemy",
+        "uktssa"
+    ],
+    "python.formatting.provider": "black"
 }
