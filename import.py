@@ -12,8 +12,11 @@ from nhsbt_import.utils import (
     create_logs,
     create_session,
     get_error_file_path,
-    make_match_row,
+    make_patient_match_row,
+    make_transplant_match_row,
     update_nhsbt_patient,
+    create_incoming_transplant,
+    update_nhsbt_transplant,
 )
 
 # from ukrr_models.rr_models import UKRR_Deleted_Patient, UKRR_Patient
@@ -37,234 +40,9 @@ from nhsbt_import.utils import (
 #     return formatted_date
 
 
-# def run(csv_reader, error_file, log):
+def run(csv_reader, error_file, log):
+    pass
 
-#         for i, x in enumerate((3, 22, 41, 60, 79, 98)):
-#             registration_id = str(uktssa_no) + "_" + str(i + 1)
-
-#             registration_date = row[x]  # 1
-#             x += 1
-#             if registration_date in ("", None):
-#                 log.debug("No registration date for {}".format(registration_id))
-#                 continue
-#             registration_date = format_date(registration_date)
-
-#             registration_date_type = row[x]  # 2
-#             x += 1
-#             if registration_date_type in ("", None):
-#                 registration_date_type = ""
-
-#             registration_end_status = row[x]  # 3
-#             x += 1
-#             if registration_end_status in ("", None):
-#                 registration_end_status = ""
-
-#             transplant_consideration = row[x]  # 4
-#             x += 1
-#             if transplant_consideration in ("", None):
-#                 transplant_consideration = ""
-
-#             ukt_suspension = row[x]  # 5
-#             x += 1
-#             if ukt_suspension in ("", None):
-#                 ukt_suspension = ""
-
-#             registration_end_date = row[x]  # 6
-#             x += 1
-#             if registration_end_date in ("", None):
-#                 registration_end_date = None
-#             else:
-#                 registration_end_date = format_date(registration_end_date)
-
-#             transplant_id = row[x]  # 7
-#             x += 1
-#             if transplant_id in ("", None):
-#                 transplant_id = None
-#             else:
-#                 transplant_id = int(transplant_id)
-
-#             transplant_list.append(registration_id)
-
-#             transplant_date = row[x]  # 8
-#             x += 1
-#             if transplant_date in ("", None):
-#                 transplant_date = None
-#             else:
-#                 transplant_date = format_date(transplant_date)
-
-#             transplant_type = row[x]  # 9
-#             x += 1
-#             if transplant_type in ("", None):
-#                 transplant_type = ""
-
-#             transplant_sex = row[x]  # 10
-#             x += 1
-#             if transplant_sex in ("", None):
-#                 transplant_sex = ""
-
-#             transplant_relationship = row[x]  # 11
-#             x += 1
-#             if transplant_relationship in ("", None):
-#                 transplant_relationship = ""
-
-#             transplant_organ = row[x]  # 12
-#             x += 1
-#             if transplant_organ in ("", None):
-#                 transplant_organ = ""
-
-#             transplant_unit = row[x]  # 13
-#             x += 1
-#             if transplant_unit in ("", None):
-#                 transplant_unit = ""
-
-#             ukt_fail_date = row[x]  # 14
-#             x += 1
-#             if ukt_fail_date in ("", None):
-#                 ukt_fail_date = None
-#             else:
-#                 ukt_fail_date = format_date(ukt_fail_date)
-
-#             transplant_dialysis = row[x]  # 15
-#             x += 1
-#             if transplant_dialysis in ("", None):
-#                 transplant_dialysis = ""
-
-#             cit_mins = row[x]  # 16
-#             x += 1
-#             if cit_mins in ("", None):
-#                 cit_mins = ""
-
-#             hla_mismatch = row[x]  # 17
-#             x += 1
-#             if hla_mismatch in ("", None):
-#                 hla_mismatch = ""
-
-#             cause_of_failure = row[x]  # 18
-#             x += 1
-#             if cause_of_failure in ("", None):
-#                 cause_of_failure = ""
-
-#             cause_of_failure_text = row[x]  # 19
-#             x += 1
-#             if cause_of_failure_text in ("", None):
-#                 cause_of_failure_text = ""
-
-#             results = (
-#                 Session.query(UKT_Transplant)
-#                 .filter_by(registration_id=registration_id)
-#                 .all()
-#             )
-
-#             # Record exists - update it
-#             if len(results) > 0:
-#                 ukt_transplant = results[0]
-#                 log.info("Updating record")
-#                 # No need to update Registration ID as it was used
-#                 # for matching. Or UKTSSA_No as they're related.
-
-#                 if rr_no != ukt_transplant.rr_no:
-#                     ukt_transplant.rr_no = rr_no
-
-#                 if registration_date != ukt_transplant.registration_date:
-#                     ukt_transplant.registration_date = registration_date
-
-#                 if registration_date_type != ukt_transplant.registration_date_type:
-#                     ukt_transplant.registration_date_type = registration_date_type
-
-#                 if registration_end_status != ukt_transplant.registration_end_status:
-#                     ukt_transplant.registration_end_status = registration_end_status
-
-#                 if transplant_consideration != ukt_transplant.transplant_consideration:
-#                     ukt_transplant.transplant_consideration = transplant_consideration
-
-#                 if ukt_suspension != ukt_transplant.ukt_suspension:
-#                     ukt_transplant.ukt_suspension = ukt_suspension
-
-#                 if registration_end_date != ukt_transplant.registration_end_date:
-#                     if ukt_transplant.registration_end_date is not None:
-#                         excel_error_wb.Sheets["Transplant Field Differences"].WriteRow(
-#                             (
-#                                 uktssa_no,
-#                                 registration_id,
-#                                 "Registration End Date",
-#                                 registration_end_date,
-#                                 ukt_transplant.registration_end_date,
-#                             )
-#                         )
-#                     ukt_transplant.registration_end_date = registration_end_date
-
-#                 if transplant_id != ukt_transplant.transplant_id:
-#                     ukt_transplant.transplant_id = transplant_id
-
-#                 if transplant_date != ukt_transplant.transplant_date:
-#                     ukt_transplant.transplant_date = transplant_date
-
-#                 if transplant_type != ukt_transplant.transplant_type:
-#                     ukt_transplant.transplant_type = transplant_type
-
-#                 if transplant_sex != ukt_transplant.transplant_sex:
-#                     ukt_transplant.transplant_sex = transplant_sex
-
-#                 if transplant_relationship != ukt_transplant.transplant_relationship:
-#                     ukt_transplant.transplant_relationship = transplant_relationship
-
-#                 if transplant_organ != ukt_transplant.transplant_organ:
-#                     ukt_transplant.transplant_organ = transplant_organ
-
-#                 # TODO: This might benefit from all being converted to ASCII
-#                 if transplant_unit != ukt_transplant.transplant_unit:
-#                     ukt_transplant.transplant_unit = transplant_unit
-
-#                 if ukt_fail_date != ukt_transplant.ukt_fail_date:
-#                     ukt_transplant.ukt_fail_date = ukt_fail_date
-
-#                 if transplant_dialysis != ukt_transplant.transplant_dialysis:
-#                     ukt_transplant.transplant_dialysis = transplant_dialysis
-
-#                 if cit_mins != ukt_transplant.cit_mins:
-#                     ukt_transplant.cit_mins = cit_mins
-
-#                 if hla_mismatch != ukt_transplant.hla_mismatch:
-#                     ukt_transplant.hla_mismatch = hla_mismatch
-
-#                 if cause_of_failure != ukt_transplant.cause_of_failure:
-#                     ukt_transplant.cause_of_failure = cause_of_failure
-
-#                 if cause_of_failure_text != ukt_transplant.cause_of_failure_text:
-#                     ukt_transplant.cause_of_failure_text = cause_of_failure_text
-
-#             # Mew Record
-#             else:
-#                 log.info("Add record to database")
-#                 ukt_transplant = UKT_Transplant(
-#                     uktssa_no=uktssa_no,
-#                     rr_no=rr_no,
-#                     registration_id=registration_id,
-#                     registration_date=registration_date,
-#                     registration_date_type=registration_date_type,
-#                     registration_end_status=registration_end_status,
-#                     transplant_consideration=transplant_consideration,
-#                     ukt_suspension=ukt_suspension,
-#                     registration_end_date=registration_end_date,
-#                     transplant_id=transplant_id,
-#                     transplant_date=transplant_date,
-#                     transplant_type=transplant_type,
-#                     transplant_sex=transplant_sex,
-#                     transplant_relationship=transplant_relationship,
-#                     transplant_organ=transplant_organ,
-#                     transplant_unit=transplant_unit,
-#                     ukt_fail_date=ukt_fail_date,
-#                     transplant_dialysis=transplant_dialysis,
-#                     cit_mins=cit_mins,
-#                     hla_mismatch=hla_mismatch,
-#                     cause_of_failure=cause_of_failure,
-#                     cause_of_failure_text=cause_of_failure_text,
-#                 )
-#                 Session.add(ukt_transplant)
-
-#                 session.commit()
-
-#         Cursor = Engine.connect()
 
 #     sql_string = """
 #     SELECT
@@ -308,34 +86,53 @@ from nhsbt_import.utils import (
 #     excel_error_wb.Save(error_file)
 
 
-def import_patient(row, session, log, match_type_df):
+def import_patient(row, session, log, output_dfs):
+    match_type = None
+    # If a ukt number exists in the row of the file search the DB
     if (
         incoming_patient := create_incoming_patient(row)
     ).uktssa_no.notna() and incoming_patient.uktssa_no != 0:
-        results = (
-            session.query(UKT_Patient)
-            .filter_by(uktssa_no=incoming_patient.uktssa_no)
-            .all()
-        )
-        match_type = None
-
-        if len(results) == 1:
+        # If patient exists in DB update if required
+        if (
+            results := (
+                session.query(UKT_Patient)
+                .filter_by(uktssa_no=incoming_patient.uktssa_no)
+                .all()
+            )
+            == 1
+        ):
             log.info(f"UKT Patient {incoming_patient.uktssa_no} found in database")
-            log.info("Updating record")
-            match_type = "Update"
             existing_patient = results[0]
-            match_row = make_match_row(match_type, incoming_patient, existing_patient)
-            match_type_df.append(match_row, ignore_index=True)
-            existing_patient = update_nhsbt_patient(incoming_patient, existing_patient)
-            session.commit()
 
-        if len(results) == 0:
+            if existing_patient != incoming_patient:
+                log.info("Updating record")
+                match_type = "Update"
+
+                match_row = make_patient_match_row(
+                    match_type, incoming_patient, existing_patient
+                )
+
+                output_dfs["updated_patients_df"].append(match_row, ignore_index=True)
+
+                existing_patient = update_nhsbt_patient(
+                    incoming_patient, existing_patient
+                )
+
+                session.commit()
+            else:
+                log.info("No Update required")
+
+        # If patient doesn't exist in DB, add
+        elif len(results) == 0:
             log.info("Add patient")
             match_type = "New"
-            match_row = make_match_row(
+
+            match_row = make_patient_match_row(
                 match_type, incoming_patient, existing_patient=None
             )
-            match_type_df.append(match_row, ignore_index=True)
+
+            output_dfs["new_patients_df"].append(match_row, ignore_index=True)
+
             session.add(incoming_patient)
         else:
             log.error(f"{incoming_patient.uktssa_no} in the database multiple times")
@@ -343,26 +140,93 @@ def import_patient(row, session, log, match_type_df):
         return match_type
 
 
+def import_transplants(row, session, log, output_dfs):
+    # Max transplants is determined by what is sent in the file
+    # Adjust if more columns of transplants are sent
+    max_transplants = 6
+    transplant_counter = 1
+    transplant_match_types = {}
+
+    while transplant_counter <= max_transplants:
+        # Minimum for a transplant is a registered date
+        if row[f"uktr_date_on{transplant_counter}"]:
+            incoming_transplant = create_incoming_transplant(row, transplant_counter)
+
+            if (
+                results := session.query(UKT_Transplant)
+                .filter_by(registration_id=incoming_transplant.registration_id)
+                .all()
+                == 1
+            ):
+                log.info(
+                    f"Transplant ID {incoming_transplant.registration_id} found in database"
+                )
+
+                existing_transplant = results[0]
+
+                if existing_transplant != incoming_transplant:
+                    log.info("Updating record")
+
+                    match_type = "Update"
+                    transplant_match_types[
+                        incoming_transplant.registration_id
+                    ] = match_type
+
+                    match_row = make_transplant_match_row(
+                        match_type, incoming_transplant, existing_transplant
+                    )
+
+                    output_dfs["updated_transplants_df"].append(
+                        match_row, ignore_index=True
+                    )
+
+                    existing_transplant = update_nhsbt_transplant(
+                        incoming_transplant, existing_transplant
+                    )
+
+                    session.commit()
+                else:
+                    log.info("No Update required")
+
+            elif len(results) == 0:
+                log.info("Add transplant")
+
+                match_type = "New"
+                transplant_match_types[incoming_transplant.registration_id] = match_type
+
+                match_row = make_transplant_match_row(
+                    match_type, incoming_transplant, existing_transplant=None
+                )
+
+                output_dfs["new_transplant_df"].append(match_row, ignore_index=True)
+
+                session.add(incoming_transplant)
+            else:
+                log.error(
+                    f"{incoming_transplant.registration_id} in the database multiple times"
+                )
+
+
 def nhsbt_import(input_file, log, session):
-    # TODO: Some of these dataframes are redundant
     nhsbt_df = pd.read_csv(input_file)
-    match_type_df = create_df("match_type_df", df_columns)
-    patient_field_differences_df = create_df("patient_field_differences_df", df_columns)
-    transplant_field_differences_df = create_df(
-        "transplant_field_differences_df", df_columns
-    )
-    invalid_postcode_df = create_df("invalid_postcode_df", df_columns)
-    invalid_nhs_number_df = create_df("invalid_nhs_number_df", df_columns)
-    missing_patient_df = create_df("missing_patient_df", df_columns)
-    missing_transplant_df = create_df("missing_transplant_df", df_columns)
+    output_dfs = {
+        "new_patients_df": create_df("new_patients_df", df_columns),
+        "updated_patients_df": create_df("updated_patients_df", df_columns),
+        "new_transplant_df": create_df("new_transplant_df", df_columns),
+        "updated_transplants_df": create_df("updated_transplants_df", df_columns),
+    }
 
     patient_list = []
     transplant_list = []
 
     for index, row in nhsbt_df.iterrows():
         log.info(f"on line {index}")
-        if match_type := import_patient(row, session, log, match_type_df):
-            patient_list.append(row["UKTR_ID"])
+        if match_type := import_patient(row, session, log, output_dfs):
+            import_transplants(row, session, log, output_dfs)
+
+    writer = pd.ExcelWriter("import_logs.xlsx", engine="xlsxwriter")
+    for sheet_name, df in output_dfs.items():
+        df.to_excel(writer, sheet_name=sheet_name, index=False)
 
     # TODO: Is it still worth checking the deleted table?
     # match_type = "Match to Deleted Patient"

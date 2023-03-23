@@ -19,7 +19,7 @@ from nhsbt_import.utils import (
     create_session,
     get_error_file_path,
     update_nhsbt_patient,
-    make_match_row,
+    make_patient_match_row,
 )
 
 fake = Faker()
@@ -202,7 +202,7 @@ def test_update_nhsbt_patient(incoming_patient, existing_patient):
     assert updated_patient.ukt_date_birth == incoming_patient.ukt_date_birth
 
 
-def test_make_match_row(incoming_patient, existing_patient):
+def test_make_patient_match_row(incoming_patient, existing_patient):
     match_row = _incoming_patient_test(incoming_patient, existing_patient, "foo")
     assert match_row["DB RR_No"] == existing_patient.rr_no
     assert match_row["DB Surname"] == existing_patient.surname
@@ -211,16 +211,11 @@ def test_make_match_row(incoming_patient, existing_patient):
     assert match_row["DB Date Birth"] == existing_patient.ukt_date_birth
     assert match_row["DB NHS Number"] == existing_patient.new_nhs_no
     match_row = _incoming_patient_test(incoming_patient, None, "bar")
-    assert match_row["DB RR_No"] is None
-    assert match_row["DB Surname"] is None
-    assert match_row["DB Forename"] is None
-    assert match_row["DB Sex"] is None
-    assert match_row["DB Date Birth"] is None
-    assert match_row["DB NHS Number"] is None
+    assert len(match_row) == 8
 
 
 def _incoming_patient_test(incoming_patient, existing_patient, match_type):
-    result = make_match_row(incoming_patient, existing_patient, match_type)
+    result = make_patient_match_row(incoming_patient, existing_patient, match_type)
     assert result["Match Type"] == match_type
     assert result["UKTSSA_No"] == incoming_patient.uktssa_no
     assert result["File RR_No"] is None
