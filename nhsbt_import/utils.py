@@ -20,16 +20,22 @@ def create_df(name, columns):
     return pd.DataFrame(columns=columns[name])
 
 
-def create_incoming_patient(row):
+def create_incoming_patient(index, row, log):
+    uktssa_no = row["UKTR_ID"]
+    if pd.isna(uktssa_no) or uktssa_no == 0:
+        message = f"UKTR_ID must be a valid number, check row {index}"
+        log.warning(message)
+        raise ValueError(message)
+
     return UKT_Patient(
-        uktssa_no=row["UKTR_ID"],
+        uktssa_no=uktssa_no,
         surname=row["UKTR_RSURNAME"],
         forename=row["UKTR_RFORENAME"],
         sex=row["UKTR_RSEX"],
         post_code=row["UKTR_RPOSTCODE"],
         new_nhs_no=row["UKTR_RNHS_NO"],
-        chi_no=row["UKTR_RCHI_NO_NI"],
-        hsc_no=row["UKTR_RCHI_NO_SCOT"],
+        chi_no=row["UKTR_RCHI_NO_SCOT"],
+        hsc_no=row["UKTR_RCHI_NO_NI"],
         rr_no=None,
         ukt_date_death=row["UKTR_DDATE"],
         ukt_date_birth=row["UKTR_RDOB"],
@@ -64,6 +70,8 @@ def create_incoming_transplant(row, transplant_counter):
 
 
 def create_logs():
+    # TODO: Handle what happens when there is no log directory
+    # TODO: Make this create the file in the same location as the import file
     logging.config.dictConfig(yaml.safe_load(open("logconf.yaml")))
     return logging.getLogger("nhsbt_import")
 

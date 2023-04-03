@@ -7,13 +7,13 @@ formatters:
 handlers:
     console:
         class: logging.StreamHandler
-        level: DEBUG
+        level: INFO
         formatter: simple
         stream: ext://sys.stdout
 
     nhsbt_import_file:
         class: logging.handlers.RotatingFileHandler
-        level: DEBUG
+        level: WARNING
         formatter: simple
         filename: logs/nhsbt_import.log
         backupCount: 20

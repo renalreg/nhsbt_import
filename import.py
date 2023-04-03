@@ -86,58 +86,54 @@ def run(csv_reader, error_file, log):
 #     excel_error_wb.Save(error_file)
 
 
-def import_patient(row, session, log, output_dfs):
+def import_patient(index, row, session, log, output_dfs):
     match_type = None
     # If a ukt number exists in the row of the file search the DB
+    incoming_patient = create_incoming_patient(index, row, log)
+    # If patient exists in DB update if required
     if (
-        incoming_patient := create_incoming_patient(row)
-    ).uktssa_no.notna() and incoming_patient.uktssa_no != 0:
-        # If patient exists in DB update if required
-        if (
-            results := (
-                session.query(UKT_Patient)
-                .filter_by(uktssa_no=incoming_patient.uktssa_no)
-                .all()
-            )
-            == 1
-        ):
-            log.info(f"UKT Patient {incoming_patient.uktssa_no} found in database")
-            existing_patient = results[0]
+        results := (
+            session.query(UKT_Patient)
+            .filter_by(uktssa_no=incoming_patient.uktssa_no)
+            .all()
+        )
+        == 1
+    ):
+        log.info(f"UKT Patient {incoming_patient.uktssa_no} found in database")
+        existing_patient = results[0]
 
-            if existing_patient != incoming_patient:
-                log.info("Updating record")
-                match_type = "Update"
-
-                match_row = make_patient_match_row(
-                    match_type, incoming_patient, existing_patient
-                )
-
-                output_dfs["updated_patients_df"].append(match_row, ignore_index=True)
-
-                existing_patient = update_nhsbt_patient(
-                    incoming_patient, existing_patient
-                )
-
-                session.commit()
-            else:
-                log.info("No Update required")
-
-        # If patient doesn't exist in DB, add
-        elif len(results) == 0:
-            log.info("Add patient")
-            match_type = "New"
+        if existing_patient != incoming_patient:
+            log.info("Updating record")
+            match_type = "Update"
 
             match_row = make_patient_match_row(
-                match_type, incoming_patient, existing_patient=None
+                match_type, incoming_patient, existing_patient
             )
 
-            output_dfs["new_patients_df"].append(match_row, ignore_index=True)
+            output_dfs["updated_patients_df"].append(match_row, ignore_index=True)
 
-            session.add(incoming_patient)
+            existing_patient = update_nhsbt_patient(incoming_patient, existing_patient)
+
+            session.commit()
         else:
-            log.error(f"{incoming_patient.uktssa_no} in the database multiple times")
+            log.info("No Update required")
 
-        return match_type
+    # If patient doesn't exist in DB, add
+    elif len(results) == 0:
+        log.info("Add patient")
+        match_type = "New"
+
+        match_row = make_patient_match_row(
+            match_type, incoming_patient, existing_patient=None
+        )
+
+        output_dfs["new_patients_df"].append(match_row, ignore_index=True)
+
+        session.add(incoming_patient)
+    else:
+        log.error(f"{incoming_patient.uktssa_no} in the database multiple times")
+
+    return match_type
 
 
 def import_transplants(row, session, log, output_dfs):
@@ -208,20 +204,22 @@ def import_transplants(row, session, log, output_dfs):
 
 
 def nhsbt_import(input_file, log, session):
+    # TODO: The first step is cleaning this file with Notepad++ but I'm sure we could do this in code
     nhsbt_df = pd.read_csv(input_file)
     output_dfs = {
         "new_patients_df": create_df("new_patients_df", df_columns),
         "updated_patients_df": create_df("updated_patients_df", df_columns),
         "new_transplant_df": create_df("new_transplant_df", df_columns),
-        "updated_transplants_df": create_df("updated_transplants_df", df_columns),
+        "updated_transplants_df": create_df("updated_transplant_df", df_columns),
     }
 
     patient_list = []
     transplant_list = []
 
     for index, row in nhsbt_df.iterrows():
+        index += 1
         log.info(f"on line {index}")
-        if match_type := import_patient(row, session, log, output_dfs):
+        if match_type := import_patient(index, row, session, log, output_dfs):
             import_transplants(row, session, log, output_dfs)
 
     writer = pd.ExcelWriter("import_logs.xlsx", engine="xlsxwriter")
@@ -232,7 +230,7 @@ def nhsbt_import(input_file, log, session):
     # match_type = "Match to Deleted Patient"
 
 
-def check_input_file():
+def check_input_file(log):
     args, args_help = args_parse()
     input_file = args.input_file
 
@@ -241,7 +239,7 @@ def check_input_file():
         sys.exit(1)
 
     if not os.path.exists(input_file):
-        print(
+        log.warning(
             f"""
         Input File doesn't exist. Check file path
         {input_file}"""
@@ -254,9 +252,9 @@ def check_input_file():
 def main():
     log = create_logs()
     session = create_session()
-    input_file_path = check_input_file()
+    input_file_path = check_input_file(log)
     error_file_path = get_error_file_path(input_file_path)
-    nhsbt_import(input_file_path, log, session=None)
+    nhsbt_import(input_file_path, log, session)
     session.close()
 
 
