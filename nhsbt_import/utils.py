@@ -1,4 +1,6 @@
 import argparse
+import contextlib
+import datetime
 import logging
 import logging.config
 import os
@@ -8,6 +10,13 @@ import yaml
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from ukrr_models.nhsbt_models import UKT_Patient, UKT_Transplant
+
+from dateutil.parser import parse
+
+
+def add_df_row(df, row):
+    row = pd.DataFrame(row, index=[0])
+    return pd.concat([df, row], ignore_index=True)
 
 
 def args_parse(argv=None):
@@ -28,7 +37,7 @@ def create_incoming_patient(index, row, log):
         raise ValueError(message)
 
     return UKT_Patient(
-        uktssa_no=uktssa_no,
+        uktssa_no=int(uktssa_no),
         surname=row["UKTR_RSURNAME"],
         forename=row["UKTR_RFORENAME"],
         sex=row["UKTR_RSEX"],
@@ -37,35 +46,35 @@ def create_incoming_patient(index, row, log):
         chi_no=row["UKTR_RCHI_NO_SCOT"],
         hsc_no=row["UKTR_RCHI_NO_NI"],
         rr_no=None,
-        ukt_date_death=row["UKTR_DDATE"],
-        ukt_date_birth=row["UKTR_RDOB"],
+        ukt_date_death=format_date(row["UKTR_DDATE"]),
+        ukt_date_birth=format_date(row["UKTR_RDOB"]),
     )
 
 
 def create_incoming_transplant(row, transplant_counter):
     return UKT_Transplant(
-        Transplant_ID=row[f"uktr_tx_id{transplant_counter}"],
-        UKTSSA_No=row["UKTR_ID"],
-        Transplant_Date=row[f"uktr_txdate{transplant_counter}"],
-        Transplant_Type=row[f"uktr_dgrp{transplant_counter}"],
-        Transplant_Organ=row[f"uktr_tx_type{transplant_counter}"],
-        Transplant_Unit=row[f"uktr_tx_unit{transplant_counter}"],
-        UKT_Fail_Date=row[f"uktr_faildate1{transplant_counter}"],
-        RR_No=None,
-        Registration_ID=f'{row["UKTR_ID"]}_{transplant_counter}',
-        Registration_Date=row[f"uktr_date_on{transplant_counter}"],
-        Registration_Date_Type=row[f"uktr_list_status{transplant_counter}"],
-        Registration_End_Date=row[f"uktr_removal_date{transplant_counter}"],
-        Registration_End_Status=row[f"uktr_endstat{transplant_counter}"],
-        Transplant_Consideration=row[f"uktr_tx_list{transplant_counter}"],
-        Transplant_Dialysis=row[f"uktr_dial_at_tx{transplant_counter}"],
-        Transplant_Relationship=row[f"uktr_relationship{transplant_counter}"],
-        Transplant_Sex=row[f"uktr_dsex{transplant_counter}"],
-        Cause_Of_Failure=row[f"uktr_cof{transplant_counter}"],
-        Cause_Of_Failure_Text=row[f"uktr_other_cof_text{transplant_counter}"],
-        CIT_Mins=row[f"uktr_cit_mins{transplant_counter}"],
-        HLA_Mismatch=row[f"uktr_hla_mm{transplant_counter}"],
-        UKT_SUSPENSION=row[f"uktr_suspension_{transplant_counter}"],
+        transplant_id=row[f"uktr_tx_id{transplant_counter}"],
+        uktssa_no=row["UKTR_ID"],
+        transplant_date=row[f"uktr_txdate{transplant_counter}"],
+        transplant_type=row[f"uktr_dgrp{transplant_counter}"],
+        transplant_organ=row[f"uktr_tx_type{transplant_counter}"],
+        transplant_unit=row[f"uktr_tx_unit{transplant_counter}"],
+        ukt_fail_date=row[f"uktr_faildate{transplant_counter}"],
+        rr_no=None,
+        registration_id=f'{int(row["UKTR_ID"])}_{transplant_counter}',
+        registration_date=row[f"uktr_date_on{transplant_counter}"],
+        registration_date_type=row[f"uktr_list_status{transplant_counter}"],
+        registration_end_date=row[f"uktr_removal_date{transplant_counter}"],
+        registration_end_status=row[f"uktr_endstat{transplant_counter}"],
+        transplant_consideration=row[f"uktr_tx_list{transplant_counter}"],
+        transplant_dialysis=row[f"uktr_dial_at_tx{transplant_counter}"],
+        transplant_relationship=row[f"uktr_relationship{transplant_counter}"],
+        transplant_sex=row[f"uktr_dsex{transplant_counter}"],
+        cause_of_failure=row[f"uktr_cof{transplant_counter}"],
+        cause_of_failure_text=row[f"uktr_other_cof_text{transplant_counter}"],
+        cit_mins=row[f"uktr_cit_mins{transplant_counter}"],
+        hla_mismatch=row[f"uktr_hla_mm{transplant_counter}"],
+        ukt_suspension=row[f"uktr_suspension_{transplant_counter}"],
     )
 
 
@@ -80,6 +89,20 @@ def create_session():
     driver = "SQL+Server+Native+Client+11.0"
     engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
     return Session(engine, future=True)
+
+
+def format_date(str_date: str):
+    parsed_date = parse(str_date)
+    print(parsed_date)
+    date_formats = ["%d%b%Y", "%d-%b-%y"]
+    formatted_date = None
+    for date_format in date_formats:
+        with contextlib.suppress(Exception):
+            formatted_date = datetime.strptime(str_date, date_format).date()
+    if formatted_date is None:
+        print(f"{str_date} could not be formatted as a datetime")
+        raise TypeError
+    return formatted_date
 
 
 def get_error_file_path(input_file):
@@ -104,12 +127,11 @@ def update_nhsbt_transplant(incoming_transplant, existing_transplant):
 
 
 # TODO: Rename function
-def make_patient_match_row(incoming_patient, existing_patient, match_type):
+def make_patient_match_row(match_type, incoming_patient, existing_patient):
     # TODO: Add the other columns CHI etc
     patient_row = {
         "Match Type": match_type,
         "UKTSSA_No": incoming_patient.uktssa_no,
-        "File RR_No": None,
         "File Surname": incoming_patient.surname,
         "File Forename": incoming_patient.forename,
         "File Sex": incoming_patient.sex,
@@ -118,7 +140,7 @@ def make_patient_match_row(incoming_patient, existing_patient, match_type):
     }
 
     if existing_patient:
-        patient_row["DB RR_No"] = existing_patient.rr_no
+        patient_row["RR_No"] = existing_patient.rr_no
         patient_row["DB Surname"] = existing_patient.surname
         patient_row["DB Forename"] = existing_patient.forename
         patient_row["DB Sex"] = existing_patient.sex
@@ -128,7 +150,7 @@ def make_patient_match_row(incoming_patient, existing_patient, match_type):
     return patient_row
 
 
-def make_transplant_match_row(incoming_transplant, existing_transplant, match_type):
+def make_transplant_match_row(match_type, incoming_transplant, existing_transplant):
     transplant_row = {
         "Match Type": match_type,
         "UKTSSA_No": incoming_transplant.uktssa_no,

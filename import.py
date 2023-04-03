@@ -6,6 +6,7 @@ from ukrr_models.nhsbt_models import UKT_Patient, UKT_Transplant
 
 from nhsbt_import.df_columns import df_columns
 from nhsbt_import.utils import (
+    add_df_row,
     args_parse,
     create_df,
     create_incoming_patient,
@@ -24,20 +25,6 @@ from nhsbt_import.utils import (
 
 # from datetime import datetime
 # from rr_reports import ExcelLib
-
-
-# def format_date(str_date: str):
-#     date_formats = ["%d%b%Y", "%d-%b-%y"]
-#     formatted_date = None
-#     for date_format in date_formats:
-#         try:
-#             formatted_date = datetime.strptime(str_date, date_format).date()
-#         except Exception:
-#             pass
-#     if formatted_date is None:
-#         print(str_date)
-#         raise Exception
-#     return formatted_date
 
 
 def run(csv_reader, error_file, log):
@@ -92,10 +79,12 @@ def import_patient(index, row, session, log, output_dfs):
     incoming_patient = create_incoming_patient(index, row, log)
     # If patient exists in DB update if required
     if (
-        results := (
-            session.query(UKT_Patient)
-            .filter_by(uktssa_no=incoming_patient.uktssa_no)
-            .all()
+        len(
+            results := (
+                session.query(UKT_Patient)
+                .filter_by(uktssa_no=incoming_patient.uktssa_no)
+                .all()
+            )
         )
         == 1
     ):
@@ -103,33 +92,39 @@ def import_patient(index, row, session, log, output_dfs):
         existing_patient = results[0]
 
         if existing_patient != incoming_patient:
-            log.info("Updating record")
+            log.info("Updating patient")
+            # TODO: Starting to think match type is pointless
             match_type = "Update"
 
             match_row = make_patient_match_row(
                 match_type, incoming_patient, existing_patient
             )
 
-            output_dfs["updated_patients_df"].append(match_row, ignore_index=True)
+            output_dfs["updated_patients_df"] = add_df_row(
+                output_dfs["updated_patients_df"], match_row
+            )
 
             existing_patient = update_nhsbt_patient(incoming_patient, existing_patient)
 
-            session.commit()
+            # session.commit()
         else:
             log.info("No Update required")
 
     # If patient doesn't exist in DB, add
     elif len(results) == 0:
-        log.info("Add patient")
+        log.info(f"Adding patient {incoming_patient.uktssa_no}")
         match_type = "New"
 
         match_row = make_patient_match_row(
             match_type, incoming_patient, existing_patient=None
         )
 
-        output_dfs["new_patients_df"].append(match_row, ignore_index=True)
+        output_dfs["new_patients_df"] = add_df_row(
+            output_dfs["new_patients_df"], match_row
+        )
 
-        session.add(incoming_patient)
+        # session.add(incoming_patient)
+        # session.commit()
     else:
         log.error(f"{incoming_patient.uktssa_no} in the database multiple times")
 
@@ -139,6 +134,7 @@ def import_patient(index, row, session, log, output_dfs):
 def import_transplants(row, session, log, output_dfs):
     # Max transplants is determined by what is sent in the file
     # Adjust if more columns of transplants are sent
+    # TODO: Might be better of in an env file
     max_transplants = 6
     transplant_counter = 1
     transplant_match_types = {}
@@ -149,19 +145,21 @@ def import_transplants(row, session, log, output_dfs):
             incoming_transplant = create_incoming_transplant(row, transplant_counter)
 
             if (
-                results := session.query(UKT_Transplant)
-                .filter_by(registration_id=incoming_transplant.registration_id)
-                .all()
+                len(
+                    results := session.query(UKT_Transplant)
+                    .filter_by(registration_id=incoming_transplant.registration_id)
+                    .all()
+                )
                 == 1
             ):
                 log.info(
-                    f"Transplant ID {incoming_transplant.registration_id} found in database"
+                    f"Registration ID {incoming_transplant.registration_id} found in database"
                 )
 
                 existing_transplant = results[0]
 
                 if existing_transplant != incoming_transplant:
-                    log.info("Updating record")
+                    log.info("Updating transplant")
 
                     match_type = "Update"
                     transplant_match_types[
@@ -172,20 +170,20 @@ def import_transplants(row, session, log, output_dfs):
                         match_type, incoming_transplant, existing_transplant
                     )
 
-                    output_dfs["updated_transplants_df"].append(
-                        match_row, ignore_index=True
+                    output_dfs["updated_transplants_df"] = add_df_row(
+                        output_dfs["updated_transplants_df"], match_row
                     )
 
                     existing_transplant = update_nhsbt_transplant(
                         incoming_transplant, existing_transplant
                     )
 
-                    session.commit()
+                    # session.commit()
                 else:
                     log.info("No Update required")
 
             elif len(results) == 0:
-                log.info("Add transplant")
+                log.info(f"Adding transplant {incoming_transplant.registration_id}")
 
                 match_type = "New"
                 transplant_match_types[incoming_transplant.registration_id] = match_type
@@ -194,13 +192,17 @@ def import_transplants(row, session, log, output_dfs):
                     match_type, incoming_transplant, existing_transplant=None
                 )
 
-                output_dfs["new_transplant_df"].append(match_row, ignore_index=True)
+                output_dfs["new_transplant_df"] = add_df_row(
+                    output_dfs["new_transplant_df"], match_row
+                )
 
-                session.add(incoming_transplant)
+                # session.add(incoming_transplant)
+                # session.commit()
             else:
                 log.error(
                     f"{incoming_transplant.registration_id} in the database multiple times"
                 )
+            transplant_counter += 1
 
 
 def nhsbt_import(input_file, log, session):
@@ -212,6 +214,18 @@ def nhsbt_import(input_file, log, session):
         "new_transplant_df": create_df("new_transplant_df", df_columns),
         "updated_transplants_df": create_df("updated_transplant_df", df_columns),
     }
+
+    output_dfs["new_transplant_df"]["UKT Suspension"] = output_dfs["new_transplant_df"][
+        "UKT Suspension"
+    ].astype(bool)
+
+    output_dfs["updated_transplants_df"]["UKT Suspension - File"] = output_dfs[
+        "updated_transplants_df"
+    ]["UKT Suspension - File"].astype(bool)
+
+    output_dfs["updated_transplants_df"]["UKT Suspension - DB"] = output_dfs[
+        "updated_transplants_df"
+    ]["UKT Suspension - DB"].astype(bool)
 
     patient_list = []
     transplant_list = []
