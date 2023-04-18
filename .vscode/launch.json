@@ -20,8 +20,8 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "-if",
-                "C:\\Users\\andrew.atterton\\Data\\UKTR_DATA_15MAR2023\\UKTR_DATA_15MAR2023.csv"
+                "-d",
+                "C:\\Users\\andrew.atterton\\Data\\UKTR_DATA_15MAR2023"
             ]
         }
     ],
