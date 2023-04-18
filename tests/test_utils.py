@@ -5,6 +5,11 @@ import pytest
 from faker import Faker
 from unittest.mock import MagicMock
 import os
+import sys
+
+from io import StringIO
+
+import argparse
 
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
@@ -17,7 +22,6 @@ from nhsbt_import.utils import (
     create_incoming_patient,
     create_logs,
     create_session,
-    get_error_file_path,
     update_nhsbt_patient,
     make_patient_match_row,
 )
@@ -59,24 +63,35 @@ def existing_patient():
     )
 
 
-def test_args_parse():
-    args, help_text = args_parse(["--input_file", fake.file_path(depth=3)])
+def test_args_parse(mocker):
+    # Test that everything works with correct input
+    mock_arg = ["-d", fake.file_path(depth=1)]
+    mocker.patch("os.path.exists", return_value=True)
+    mocker.patch("os.path.isdir", return_value=True)
+    args = args_parse(mock_arg)
+    assert args.directory == mock_arg[1]
 
-    # Assert that the parser has the correct argument
-    assert isinstance(args.input_file, str)
+    # Test help text displayed when no input given
+    captured = StringIO()
+    sys.stderr = captured
+    with pytest.raises(SystemExit):
+        args_parse([""])
+    assert "usage:" in captured.getvalue()
 
-    # Assert that the help text is not empty
-    assert help_text.strip() != ""
+    # Test when path doesn't exist
+    mocker.patch("os.path.exists", return_value=False)
+    with pytest.raises(NotADirectoryError):
+        args_parse(mock_arg)
 
-    # Assert that the help text includes the argument description
-    assert "-if INPUT_FILE, --input_file INPUT_FILE" in help_text
+    # Test when path is not a directory
+    mocker.patch("os.path.isdir", return_value=False)
+    with pytest.raises(NotADirectoryError):
+        args_parse(mock_arg)
 
 
 def test_create_df():
     name = "test"
     df_columns = {"test": fake.pylist()}
-
-    # Call the function to create a dataframe
     df = create_df(name, df_columns)
 
     # Assert that the dataframe has the correct columns
@@ -85,6 +100,61 @@ def test_create_df():
 
     # Assert that the dataframe is empty
     assert df.empty
+
+
+def test_create_incoming_patient_valid_input():
+    # Generate fake data
+    row = {
+        "UKTR_ID": fake.random_int(),
+        "UKTR_RSURNAME": fake.last_name(),
+        "UKTR_RFORENAME": fake.first_name(),
+        "UKTR_RSEX": fake.random_element(elements=("M", "F")),
+        "UKTR_RPOSTCODE": fake.postcode(),
+        "UKTR_RNHS_NO": fake.random_number(digits=10),
+        "UKTR_RCHI_NO_NI": fake.random_number(digits=8),
+        "UKTR_RCHI_NO_SCOT": fake.random_number(digits=10),
+        "UKTR_DDATE": fake.date(),
+        "UKTR_RDOB": fake.date_of_birth(),
+    }
+    index = fake.random_int(min=1, max=99999)
+    log = fake.pystr()
+
+    # Call the function and check the return value
+    patient = create_incoming_patient(index, row, log)
+    assert patient.uktssa_no == row["UKTR_ID"]
+    assert patient.surname == row["UKTR_RSURNAME"]
+    assert patient.forename == row["UKTR_RFORENAME"]
+    assert patient.sex == row["UKTR_RSEX"]
+    assert patient.post_code == row["UKTR_RPOSTCODE"]
+    assert patient.new_nhs_no == row["UKTR_RNHS_NO"]
+    assert patient.chi_no == row["UKTR_RCHI_NO_SCOT"]
+    assert patient.hsc_no == row["UKTR_RCHI_NO_NI"]
+    assert patient.rr_no is None
+    assert patient.ukt_date_death == row["UKTR_DDATE"]
+    assert patient.ukt_date_birth == row["UKTR_RDOB"]
+
+
+def test_create_incoming_patient_invalid_input():
+    # Generate fake data with invalid UKTR_ID
+    row = {
+        "UKTR_ID": fake.pystr(),
+        "UKTR_RSURNAME": fake.last_name(),
+        "UKTR_RFORENAME": fake.first_name(),
+        "UKTR_RSEX": fake.random_element(elements=("M", "F")),
+        "UKTR_RPOSTCODE": fake.postcode(),
+        "UKTR_RNHS_NO": fake.random_number(digits=10),
+        "UKTR_RCHI_NO_NI": fake.random_number(digits=8),
+        "UKTR_RCHI_NO_SCOT": fake.random_number(digits=10),
+        "UKTR_DDATE": fake.date(),
+        "UKTR_RDOB": fake.date_of_birth(),
+    }
+    index = fake.random_int(min=1, max=99999)
+    log = fake.pystr()
+
+    # Call the function and check that it raises a ValueError with the expected message
+    with pytest.raises(ValueError) as e:
+        create_incoming_patient(index, row, log)
+    assert str(e.value) == f"UKTR_ID must be a valid number, check row {index}"
 
 
 def test_create_incoming_patient():
@@ -170,18 +240,6 @@ def test_create_session():
     assert session.bind.driver == "pyodbc"
     assert session.bind.url.host == "rr-sql-live"
     assert session.bind.url.database == "renalreg"
-
-
-def test_get_error_file_path():
-    # Define an input file path
-    input_file = fake.file_path(depth=3)
-
-    # Call the get_error_file_path function to create an error file path
-    error_file_path = get_error_file_path(input_file)
-
-    # Check that the error file path has the correct format
-    expected_path = os.path.join(os.path.split(input_file)[0], "NHSBT_Errors.xls")
-    assert error_file_path == expected_path
 
 
 def test_update_nhsbt_patient(incoming_patient, existing_patient):
