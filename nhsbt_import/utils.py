@@ -10,6 +10,7 @@ from dateutil.parser import parse
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from ukrr_models.nhsbt_models import UKT_Patient, UKT_Transplant
+from ukrr_models.rr_models import UKRR_Deleted_Patient
 
 
 def add_df_row(df, row):
@@ -39,6 +40,20 @@ def args_parse(argv=None):
         raise NotADirectoryError(f"Path is not a directory: {args.directory}")
 
     return args
+
+
+def check_missing_patients(session, file_data):
+    results = session.query(UKT_Patient.uktssa_no).all()
+    db_data = [result[0] for result in results]
+
+    return list(set(db_data) - set(file_data))
+
+
+def check_missing_transplants(session, file_data):
+    results = session.query(UKT_Transplant.registration_id).all()
+    db_data = [result[0] for result in results]
+
+    return list(set(db_data) - set(file_data))
 
 
 def create_df(name, columns):
@@ -105,10 +120,34 @@ def create_logs(directory):
     return logging.getLogger("nhsbt_import")
 
 
+def create_output_dfs(df_columns):
+    output_dfs = {df: create_df(df, df_columns) for df in df_columns}
+    output_dfs["new_transplant"]["UKT Suspension - NHSBT"] = output_dfs[
+        "new_transplant"
+    ]["UKT Suspension - NHSBT"].astype(bool)
+
+    output_dfs["updated_transplant"]["UKT Suspension - NHSBT"] = output_dfs[
+        "updated_transplant"
+    ]["UKT Suspension - NHSBT"].astype(bool)
+
+    output_dfs["updated_transplant"]["UKT Suspension - RR"] = output_dfs[
+        "updated_transplant"
+    ]["UKT Suspension - RR"].astype(bool)
+
+    return output_dfs
+
+
 def create_session():
     driver = "SQL+Server+Native+Client+11.0"
     engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
     return Session(engine, future=True)
+
+
+def deleted_patient_check(session, file_patients):
+    results = session.query(UKRR_Deleted_Patient.uktssa_no).all()
+    db_patients = {result[0] for result in results}
+
+    return list(db_patients.intersection(set(file_patients)))
 
 
 def format_date(str_date: Any):

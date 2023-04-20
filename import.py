@@ -6,83 +6,26 @@ from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.dataframe import dataframe_to_rows
 from ukrr_models.nhsbt_models import UKT_Patient, UKT_Transplant
+from ukrr_models.rr_models import UKRR_Deleted_Patient
 
 from nhsbt_import.df_columns import df_columns
 from nhsbt_import.utils import (
     add_df_row,
     args_parse,
-    create_df,
+    check_missing_patients,
+    check_missing_transplants,
+    create_output_dfs,
     create_incoming_patient,
     create_incoming_transplant,
     create_logs,
     create_session,
+    deleted_patient_check,
     get_input_file_path,
     make_patient_match_row,
     make_transplant_match_row,
     update_nhsbt_patient,
     update_nhsbt_transplant,
 )
-
-
-def run(csv_reader, error_file):
-    """
-    George
-
-    There is a whole load of code here that I don't think is require any longer.
-    First there is a search for missing patients and then a search for missing transplants
-    which I'm hoping will no longer be an issue as we are just getting everything.
-
-    The other thing it does that I'm not sure is worth it any more is to check for matches
-    against the deleted table. This might be something that is worth doing but I'm not
-    sure this is the right place as this is really only concerned with loading them.
-    Not 100% sure about that last part though
-    """
-    pass
-
-    # TODO: Is it still worth checking the deleted table?
-    # match_type = "Match to Deleted Patient"
-
-
-#     sql_string = """
-#     SELECT
-#         DISTINCT UKTSSA_NO, RR_NO
-#     FROM
-#         UKT_PATIENTS
-#     WHERE
-#         RR_NO IS NOT NULL"""
-
-#     results = Cursor.execute(sql_string).fetchall()
-
-#     missing_patient_count = 0
-#     for row in results:
-#         if not (row[0] in patient_list):
-#             missing_patient_count = missing_patient_count + 1
-#             excel_error_wb.Sheets["Missing Patients"].WriteRow((row[0], row[1]))
-
-#     log.warning("Missing Prior UKT Patients {}".format(missing_patient_count))
-
-#     sql_string = """
-#     SELECT
-#         DISTINCT REGISTRATION_ID
-#     FROM
-#         UKT_TRANSPLANTS
-#     WHERE
-#         TRANSPLANT_ID IS NOT NULL AND
-#         RR_NO IS NOT NULL AND
-#         RR_NO < 999900000
-#     """
-
-#     results = Cursor.execute(sql_string).fetchall()
-
-
-#     transplant_list = set(transplant_list)
-#     # TODO: For Subsequent updates it may make sense to look for missing registrations
-#     for row in results:
-#         if row[0] not in transplant_list:
-#             log.warning("Missing Transplant {}".format(row[0]))
-#             excel_error_wb.Sheets["Missing Transplants"].WriteRow((row[0],))
-#     log.info("Complete error spreadsheet {}".format(error_file))
-#     excel_error_wb.Save(error_file)
 
 
 def import_patient(index, row, session, output_dfs, log):
@@ -147,12 +90,13 @@ def import_transplants(row, session, output_dfs, log):
     # TODO: Might be better of in an env file
     max_transplants = 6
     transplant_counter = 1
-    transplant_match_types = {}
+    transplant_ids = []
 
     while transplant_counter <= max_transplants and not pd.isna(
         row[f"uktr_date_on{transplant_counter}"]
     ):
         incoming_transplant = create_incoming_transplant(row, transplant_counter)
+        transplant_ids.append(incoming_transplant.registration_id)
 
         if (
             len(
@@ -175,14 +119,13 @@ def import_transplants(row, session, output_dfs, log):
                 log.info("Updating transplant")
 
                 match_type = "Update"
-                transplant_match_types[incoming_transplant.registration_id] = match_type
 
                 match_row = make_transplant_match_row(
                     match_type, incoming_transplant, existing_transplant
                 )
 
-                output_dfs["updated_transplants"] = add_df_row(
-                    output_dfs["updated_transplants"], match_row
+                output_dfs["updated_transplant"] = add_df_row(
+                    output_dfs["updated_transplant"], match_row
                 )
 
                 existing_transplant = update_nhsbt_transplant(
@@ -194,7 +137,6 @@ def import_transplants(row, session, output_dfs, log):
             log.info(f"Adding transplant {incoming_transplant.registration_id}")
 
             match_type = "New"
-            transplant_match_types[incoming_transplant.registration_id] = match_type
 
             match_row = make_transplant_match_row(
                 match_type, incoming_transplant, existing_transplant=None
@@ -212,37 +154,56 @@ def import_transplants(row, session, output_dfs, log):
             )
         transplant_counter += 1
 
+    return transplant_ids
+
 
 def nhsbt_import(input_file_path, audit_file_path, session, log):
     # TODO: The first step is cleaning this file with Notepad++ but I'm sure we could do this in code
     nhsbt_df = pd.read_csv(input_file_path)
-    output_dfs = {
-        "new_patients": create_df("new_patients", df_columns),
-        "updated_patients": create_df("updated_patients", df_columns),
-        "new_transplant": create_df("new_transplant", df_columns),
-        "updated_transplants": create_df("updated_transplant", df_columns),
-    }
-
-    output_dfs["new_transplant"]["UKT Suspension - NHSBT"] = output_dfs[
-        "new_transplant"
-    ]["UKT Suspension - NHSBT"].astype(bool)
-
-    output_dfs["updated_transplants"]["UKT Suspension - NHSBT"] = output_dfs[
-        "updated_transplants"
-    ]["UKT Suspension - NHSBT"].astype(bool)
-
-    output_dfs["updated_transplants"]["UKT Suspension - RR"] = output_dfs[
-        "updated_transplants"
-    ]["UKT Suspension - RR"].astype(bool)
-
-    patient_list = []
-    transplant_list = []
+    output_dfs = create_output_dfs(df_columns)
+    transplant_ids = []
 
     for index, row in nhsbt_df.iterrows():
         index += 1
         log.info(f"on line {index + 1}")
         if match_type := import_patient(index, row, session, output_dfs, log):
-            import_transplants(row, session, output_dfs, log)
+            transplant_ids.extend(import_transplants(row, session, output_dfs, log))
+
+    file_uktssas = nhsbt_df["UKTR_ID"].tolist()
+
+    if missing_uktssa := check_missing_patients(session, file_uktssas):
+        # output_dfs["missing_patients"] = create_df("missing_patients", df_columns)
+        missing_patients = (
+            session.query(UKT_Patient)
+            .filter(UKT_Patient.uktssa_no.in_(missing_uktssa))
+            .all()
+        )
+        patient_data = [
+            missing_patient.__dict__ for missing_patient in missing_patients
+        ]
+        output_dfs["missing_patients"] = pd.DataFrame.from_records(patient_data)
+
+    if missing_transplants_ids := check_missing_transplants(session, transplant_ids):
+        missing_transplants = (
+            session.query(UKT_Transplant)
+            .filter(UKT_Transplant.registration_id.in_(missing_transplants_ids))
+            .all()
+        )
+        transplant_data = [
+            missing_transplant.__dict__ for missing_transplant in missing_transplants
+        ]
+        output_dfs["missing_transplants"] = pd.DataFrame.from_records(output_dfs)
+
+    if deleted_uktssa := deleted_patient_check(session, file_uktssas):
+        deleted_patients = (
+            session.query(UKRR_Deleted_Patient)
+            .filter(UKRR_Deleted_Patient.uktssa_no.in_(deleted_uktssa))
+            .all()
+        )
+        deleted_data = [
+            deleted_patient.__dict__ for deleted_patient in deleted_patients
+        ]
+        output_dfs["deleted_patients"] = pd.DataFrame.from_records(deleted_data)
 
     wb = Workbook()
     wb.remove(wb["Sheet"])
