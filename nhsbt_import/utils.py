@@ -3,7 +3,8 @@ import logging
 import logging.config
 import os
 import sys
-from typing import Any
+from datetime import datetime
+from typing import Optional
 
 import pandas as pd
 from dateutil.parser import parse
@@ -13,12 +14,30 @@ from ukrr_models.nhsbt_models import UKT_Patient, UKT_Transplant
 from ukrr_models.rr_models import UKRR_Deleted_Patient
 
 
-def add_df_row(df, row):
+def add_df_row(df: pd.DataFrame, row: dict[str, str]) -> pd.DataFrame:
     row = pd.DataFrame(row, index=[0])
     return pd.concat([df, row], ignore_index=True)
 
 
-def args_parse(argv=None):
+def args_parse(argv=None) -> argparse.Namespace:
+    """
+    Preforms some check on the inputs. Firstly, if no input are provided the
+    help text is displayed. Then a check is done to make sure that the
+    provided input resolves to a valid path and that the path it resolves to
+    is a directory not a file.
+
+    The argv here are used for testing purposes
+
+    Args:
+        argv (list, optional): List of inputs. Defaults to None.
+
+    Raises:
+        NotADirectoryError: If path not found
+        NotADirectoryError: If path does not resolve to a directory
+
+    Returns:
+        argparse.Namespace:
+    """
     parser = argparse.ArgumentParser(description="nhsbt_import")
     parser.add_argument(
         "-d",
@@ -42,25 +61,27 @@ def args_parse(argv=None):
     return args
 
 
-def check_missing_patients(session, file_data):
+def check_missing_patients(session: Session, file_data: pd.Series) -> list[str]:
     results = session.query(UKT_Patient.uktssa_no).all()
     db_data = [result[0] for result in results]
 
     return list(set(db_data) - set(file_data))
 
 
-def check_missing_transplants(session, file_data):
+def check_missing_transplants(session: Session, file_data: pd.Series) -> list[str]:
     results = session.query(UKT_Transplant.registration_id).all()
     db_data = [result[0] for result in results]
 
     return list(set(db_data) - set(file_data))
 
 
-def create_df(name, columns):
+def create_df(name: str, columns: dict[str, list[str]]) -> pd.DataFrame:
     return pd.DataFrame(columns=columns[name])
 
 
-def create_incoming_patient(index, row, log):
+def create_incoming_patient(
+    index: int, row: pd.Series, log: logging.Logger
+) -> UKT_Patient:
     uktssa_no = row["UKTR_ID"]
     if pd.isna(uktssa_no) or uktssa_no == 0:
         message = f"UKTR_ID must be a valid number, check row {index}"
@@ -82,7 +103,9 @@ def create_incoming_patient(index, row, log):
     )
 
 
-def create_incoming_transplant(row, transplant_counter):
+def create_incoming_transplant(
+    row: pd.Series, transplant_counter: int
+) -> UKT_Transplant:
     return UKT_Transplant(
         transplant_id=row[f"uktr_tx_id{transplant_counter}"],
         uktssa_no=row["UKTR_ID"],
@@ -109,58 +132,96 @@ def create_incoming_transplant(row, transplant_counter):
     )
 
 
-def create_logs(directory):
+def create_logs(directory: str) -> logging.Logger:
+    """
+    Uses the supplied directory for the NHSBT file to set up a errors file.
+    Anything with a log level of warning or higher is written.
+
+    Args:
+        directory (str): The directory that holds the input file
+
+    Returns:
+        logging.Logger: A logger nhsbt_logger
+    """
     errors_file_path = os.path.abspath(f"{directory}/errors.log").replace("\\", "/")[2:]
 
     logging.config.fileConfig(
         fname="logconf.conf",
         disable_existing_loggers=False,
-        defaults={"logfilename": errors_file_path},
+        defaults={"log_file_name": errors_file_path},
     )
     return logging.getLogger("nhsbt_import")
 
 
-def create_output_dfs(df_columns):
+def create_output_dfs(df_columns: dict[str, list[str]]) -> dict[str, pd.DataFrame]:
+    """
+    Creates all the output dataframes that are latter saved as an excel file. Also does
+    some type conversions for bool columns to get round an issue with columns that
+    have blank cells.
+
+    Args:
+        df_columns (dict[str, list[str]]): Includes all sheet names and columns
+
+    Returns:
+        dict[str, pd.DataFrame]: All the output dataframes
+    """
     output_dfs = {df: create_df(df, df_columns) for df in df_columns}
-    output_dfs["new_transplant"]["UKT Suspension - NHSBT"] = output_dfs[
-        "new_transplant"
+    output_dfs["new_transplants"]["UKT Suspension - NHSBT"] = output_dfs[
+        "new_transplants"
     ]["UKT Suspension - NHSBT"].astype(bool)
 
-    output_dfs["updated_transplant"]["UKT Suspension - NHSBT"] = output_dfs[
-        "updated_transplant"
+    output_dfs["updated_transplants"]["UKT Suspension - NHSBT"] = output_dfs[
+        "updated_transplants"
     ]["UKT Suspension - NHSBT"].astype(bool)
 
-    output_dfs["updated_transplant"]["UKT Suspension - RR"] = output_dfs[
-        "updated_transplant"
+    output_dfs["updated_transplants"]["UKT Suspension - RR"] = output_dfs[
+        "updated_transplants"
     ]["UKT Suspension - RR"].astype(bool)
 
     return output_dfs
 
 
-def create_session():
-    driver = "SQL+Server+Native+Client+11.0"
-    engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
+def create_session() -> Session:
+    # driver = "SQL+Server+Native+Client+11.0"
+    # engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
+    engine = create_engine("postgresql://postgres:password@localhost:5432/radar")
+
     return Session(engine, future=True)
 
 
-def deleted_patient_check(session, file_patients):
+def deleted_patient_check(session: Session, file_patients: list[str]) -> list[str]:
     results = session.query(UKRR_Deleted_Patient.uktssa_no).all()
     db_patients = {result[0] for result in results}
 
     return list(db_patients.intersection(set(file_patients)))
 
 
-def format_date(str_date: Any):
-    if isinstance(str_date, str):
-        return parse(str_date)
-    return
+def format_date(str_date: Optional[str]) -> Optional[datetime]:
+    return parse(str_date) if isinstance(str_date, str) else None
 
 
-def get_input_file_path(directory, log):
+def get_input_file_path(directory: str, log: logging.Logger) -> str:
+    """
+    Checks the supplied directory for the NHSBT. Looks for CSV files
+    in the directory and checks that there is only one. More than one
+    raises an error
+
+    Args:
+        directory (str): Supplied input directory path
+        log (logging.Logger): Logger
+
+    Raises:
+        ValueError: Raised if there is more than one CSV found
+
+    Returns:
+        str: File path
+    """
     csv_list = [file for file in os.listdir(directory) if file.endswith(".csv")]
 
     if len(csv_list) > 1:
-        log.warning()
+        log.warning(
+            f"Expected to find one import CSV file in {directory}, but found {len(csv_list)} files."
+        )
         raise ValueError(
             f"Expected to find one import CSV file in {directory}, but found {len(csv_list)} files."
         )
@@ -168,7 +229,70 @@ def get_input_file_path(directory, log):
     return os.path.join(directory, csv_list[0])
 
 
-def make_patient_match_row(match_type, incoming_patient, existing_patient):
+def make_deleted_patient_row(
+    match_type: str, deleted_patient: UKRR_Deleted_Patient
+) -> dict[str, str]:
+    # TODO: Add the other columns CHI etc
+    return {
+        "Match Type": match_type,
+        "UKTSSA_No": deleted_patient.uktssa_no,
+        "RR_No": deleted_patient.rr_no,
+        "Surname - RR": deleted_patient.surname,
+        "Forename - RR": deleted_patient.forename,
+        "Sex - RR": deleted_patient.sex,
+        "Date Birth - RR": deleted_patient.date_birth,
+        "NHS Number - RR": deleted_patient.nhs_no,
+    }
+
+
+def make_missing_patient_row(
+    match_type: str, missing_patient: UKT_Patient
+) -> dict[str, str]:
+    # TODO: Add the other columns CHI etc
+    return {
+        "Match Type": match_type,
+        "UKTSSA_No": missing_patient.uktssa_no,
+        "Surname - RR": missing_patient.surname,
+        "Forename - RR": missing_patient.forename,
+        "Sex - RR": missing_patient.sex,
+        "Date Birth - RR": missing_patient.ukt_date_birth,
+        "NHS Number - RR": missing_patient.new_nhs_no,
+    }
+
+
+def make_missing_transplant_match_row(
+    missing_transplant: UKT_Transplant,
+) -> dict[str, str]:
+    return {
+        "Match Type": "Missing",
+        "UKTSSA_No": missing_transplant.uktssa_no,
+        "Transplant ID - RR": missing_transplant.transplant_id,
+        "Registration ID - RR": missing_transplant.registration_id,
+        "Transplant Date - RR": missing_transplant.transplant_date,
+        "Transplant Type - RR": missing_transplant.transplant_type,
+        "Transplant Organ - RR": missing_transplant.transplant_organ,
+        "Transplant Unit - RR": missing_transplant.transplant_unit,
+        "Registration Date - RR": missing_transplant.registration_date,
+        "Registration Date Type - RR": missing_transplant.registration_date_type,
+        "Registration End Date - RR": missing_transplant.registration_end_date,
+        "Registration End Status - RR": missing_transplant.registration_end_status,
+        "Transplant Consideration - RR": missing_transplant.transplant_consideration,
+        "Transplant Dialysis - RR": missing_transplant.transplant_dialysis,
+        "Transplant Relationship - RR": missing_transplant.transplant_relationship,
+        "Transplant Sex - RR": missing_transplant.transplant_sex,
+        "Cause of Failure - RR": missing_transplant.cause_of_failure,
+        "Cause of Failure Text - RR": missing_transplant.cause_of_failure_text,
+        "CIT Mins - RR": missing_transplant.cit_mins,
+        "HLA Mismatch - RR": missing_transplant.hla_mismatch,
+        "UKT Suspension - RR": missing_transplant.ukt_suspension,
+    }
+
+
+def make_patient_match_row(
+    match_type: str,
+    incoming_patient: UKT_Patient,
+    existing_patient: Optional[UKT_Patient],
+) -> dict[str, str]:
     # TODO: Add the other columns CHI etc
     patient_row = {
         "Match Type": match_type,
@@ -191,7 +315,11 @@ def make_patient_match_row(match_type, incoming_patient, existing_patient):
     return patient_row
 
 
-def make_transplant_match_row(match_type, incoming_transplant, existing_transplant):
+def make_transplant_match_row(
+    match_type: str,
+    incoming_transplant: UKT_Transplant,
+    existing_transplant: Optional[UKT_Transplant],
+) -> dict[str, str]:
     transplant_row = {
         "Match Type": match_type,
         "UKTSSA_No": incoming_transplant.uktssa_no,
@@ -254,7 +382,9 @@ def make_transplant_match_row(match_type, incoming_transplant, existing_transpla
     return transplant_row
 
 
-def update_nhsbt_patient(incoming_patient, existing_patient):
+def update_nhsbt_patient(
+    incoming_patient: UKT_Patient, existing_patient: UKT_Patient
+) -> UKT_Patient:
     # Incoming RR will always be None so preserve existing
     existing_rr = existing_patient.rr_no
     existing_patient = incoming_patient
@@ -262,7 +392,9 @@ def update_nhsbt_patient(incoming_patient, existing_patient):
     return existing_patient
 
 
-def update_nhsbt_transplant(incoming_transplant, existing_transplant):
+def update_nhsbt_transplant(
+    incoming_transplant: UKT_Transplant, existing_transplant: UKT_Transplant
+) -> UKT_Transplant:
     # Incoming RR will always be None so preserve existing
     existing_rr = existing_transplant.rr_no
     existing_transplant = incoming_transplant
