@@ -61,7 +61,7 @@ def args_parse(argv=None) -> argparse.Namespace:
     return args
 
 
-def check_missing_patients(session: Session, file_data: pd.Series) -> list[str]:
+def check_missing_patients(session: Session, file_data: pd.Series) -> list[int]:
     results = session.query(UKT_Patient.uktssa_no).all()
     db_data = [result[0] for result in results]
 
@@ -83,7 +83,7 @@ def create_incoming_patient(
     index: int, row: pd.Series, log: logging.Logger
 ) -> UKT_Patient:
     uktssa_no = row["UKTR_ID"]
-    if pd.isna(uktssa_no) or uktssa_no == 0:
+    if pd.isna(uktssa_no) or uktssa_no == 0 or not isinstance(uktssa_no, int):
         message = f"UKTR_ID must be a valid number, check row {index}"
         log.warning(message)
         raise ValueError(message)
