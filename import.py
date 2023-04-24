@@ -9,8 +9,8 @@ from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.dataframe import dataframe_to_rows
 from sqlalchemy.orm import Session
-from ukrr_models.nhsbt_models import UKT_Patient, UKT_Transplant
-from ukrr_models.rr_models import UKRR_Deleted_Patient
+from ukrr_models.nhsbt_models import UKT_Patient, UKT_Transplant  # type: ignore [import]
+from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore [import]
 
 from nhsbt_import.df_columns import df_columns
 from nhsbt_import.utils import (
@@ -129,7 +129,7 @@ def import_transplants(
     output_dfs: dict[str, pd.DataFrame],
     session: Session,
     log: logging.Logger,
-) -> list[int]:
+) -> list[str]:
     """
     Loops over a row looking for dates of registration on the transplant list which is the
     minimum requirement for a transplant entry. Whenever one is found a transplant object
@@ -244,7 +244,7 @@ def nhsbt_import(
     transplant_ids = []
 
     for index, row in nhsbt_df.iterrows():
-        index += 1
+        index += 1  # type: ignore [operator]
         log.info(f"on line {index + 1}")
         if import_patient(index, row, output_dfs, session, log):
             transplant_ids.extend(import_transplants(row, output_dfs, session, log))
@@ -265,7 +265,7 @@ def nhsbt_import(
 
         output_dfs["missing_patients"] = output_dfs["missing_patients"].append(
             patient_data, ignore_index=True
-        )
+        )  # type: ignore [operator]
 
     if missing_transplants_ids := check_missing_transplants(session, transplant_ids):
         missing_transplants = (
@@ -279,7 +279,7 @@ def nhsbt_import(
         ]
         output_dfs["missing_transplants"] = output_dfs["missing_transplants"].append(
             transplant_data, ignore_index=True
-        )
+        )  # type: ignore [operator]
 
     if deleted_uktssa := deleted_patient_check(session, file_uktssas):
         deleted_patients = (
@@ -293,7 +293,7 @@ def nhsbt_import(
         ]
         output_dfs["deleted_patients"] = output_dfs["deleted_patients"].append(
             deleted_data, ignore_index=True
-        )
+        )  # type: ignore [operator]
 
     wb = Workbook()
     wb.remove(wb["Sheet"])

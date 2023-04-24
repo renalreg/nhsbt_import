@@ -10,13 +10,13 @@ import pandas as pd
 from dateutil.parser import parse
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from ukrr_models.nhsbt_models import UKT_Patient, UKT_Transplant
-from ukrr_models.rr_models import UKRR_Deleted_Patient
+from ukrr_models.nhsbt_models import UKT_Patient, UKT_Transplant  # type: ignore [import]
+from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore [import]
 
 
 def add_df_row(df: pd.DataFrame, row: dict[str, str]) -> pd.DataFrame:
-    row = pd.DataFrame(row, index=[0])
-    return pd.concat([df, row], ignore_index=True)
+    row_df = pd.DataFrame(row, index=[0])
+    return pd.concat([df, row_df], ignore_index=True)
 
 
 def args_parse(argv=None) -> argparse.Namespace:
@@ -61,14 +61,14 @@ def args_parse(argv=None) -> argparse.Namespace:
     return args
 
 
-def check_missing_patients(session: Session, file_data: pd.Series) -> list[int]:
+def check_missing_patients(session: Session, file_data: list[int]) -> list[int]:
     results = session.query(UKT_Patient.uktssa_no).all()
     db_data = [result[0] for result in results]
 
     return list(set(db_data) - set(file_data))
 
 
-def check_missing_transplants(session: Session, file_data: pd.Series) -> list[str]:
+def check_missing_transplants(session: Session, file_data: list[str]) -> list[str]:
     results = session.query(UKT_Transplant.registration_id).all()
     db_data = [result[0] for result in results]
 
@@ -182,9 +182,9 @@ def create_output_dfs(df_columns: dict[str, list[str]]) -> dict[str, pd.DataFram
 
 
 def create_session() -> Session:
-    # driver = "SQL+Server+Native+Client+11.0"
-    # engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
-    engine = create_engine("postgresql://postgres:password@localhost:5432/radar")
+    driver = "SQL+Server+Native+Client+11.0"
+    engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
+    # engine = create_engine("postgresql://postgres:password@localhost:5432/radar")
 
     return Session(engine, future=True)
 

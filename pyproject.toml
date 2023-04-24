@@ -27,6 +27,7 @@ ruff = "^0.0.262"
 mypy = "^1.2.0"
 bandit = "^1.7.5"
 tox = "^4.4.12"
+pytest-cov = "^4.0.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -37,3 +38,5 @@ ignore = [
   "E501", # Line too long (let Black handle this)
 ]
 
+[tool.bandit]
+exclude_dirs = ["tests", ".vscode", ".tox", ".ruff_cache", ".pytest_cache", ".mypy_cache"]

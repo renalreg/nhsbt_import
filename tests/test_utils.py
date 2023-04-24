@@ -10,7 +10,7 @@ import pytest
 from faker import Faker
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from ukrr_models.nhsbt_models import Base, UKT_Patient, UKT_Transplant
+from ukrr_models.nhsbt_models import Base, UKT_Patient, UKT_Transplant  # type: ignore [import]
 
 from nhsbt_import.utils import (
     add_df_row,
@@ -21,9 +21,12 @@ from nhsbt_import.utils import (
     create_incoming_patient,
     create_incoming_transplant,
     create_logs,
+    create_output_dfs,
     create_session,
     make_patient_match_row,
+    make_transplant_match_row,
     update_nhsbt_patient,
+    update_nhsbt_transplant,
 )
 
 fake = Faker()
@@ -69,6 +72,19 @@ def session():
 
 
 @pytest.fixture
+def df_columns():
+    columns = {
+        "new_transplants": [fake.word() for _ in range(5)],
+        "updated_transplants": [fake.word() for _ in range(6)],
+        "other_sheet": [fake.word() for _ in range(4)],
+    }
+    columns["new_transplants"].append("UKT Suspension - NHSBT")
+    columns["updated_transplants"].append("UKT Suspension - NHSBT")
+    columns["updated_transplants"].append("UKT Suspension - RR")
+    return columns
+
+
+@pytest.fixture
 def df_data():
     fake = Faker()
     return {"Name": fake.name(), "Age": fake.random_int(min=18, max=99)}
@@ -107,9 +123,60 @@ def existing_patient():
         new_nhs_no=fake.random_number(digits=10),
         chi_no=None,
         hsc_no=None,
-        rr_no=fake.uuid4(),
+        rr_no=fake.random_number(digits=6),
         ukt_date_death=None,
         ukt_date_birth=None,
+    )
+
+
+@pytest.fixture
+def incoming_transplant():
+    return UKT_Transplant(
+        uktssa_no=fake.random_number(digits=6),
+        transplant_id=fake.uuid4(),
+        registration_id=fake.random_number(digits=8),
+        transplant_date=fake.date(),
+        transplant_type=fake.word(),
+        transplant_organ=fake.word(),
+        transplant_unit=fake.word(),
+        registration_date=fake.date(),
+        registration_date_type=fake.word(),
+        registration_end_date=fake.date(),
+        registration_end_status=fake.word(),
+        transplant_consideration=fake.word(),
+        transplant_dialysis=fake.word(),
+        transplant_relationship=fake.word(),
+        transplant_sex=fake.word(),
+        cause_of_failure=fake.word(),
+        cause_of_failure_text=fake.word(),
+        cit_mins=fake.random_number(digits=3),
+        hla_mismatch=fake.word(),
+        ukt_suspension=fake.word(),
+    )
+
+
+@pytest.fixture
+def existing_transplant():
+    return UKT_Transplant(
+        transplant_id=fake.uuid4(),
+        registration_id=fake.random_number(digits=8),
+        transplant_date=fake.date(),
+        transplant_type=fake.word(),
+        transplant_organ=fake.word(),
+        transplant_unit=fake.word(),
+        registration_date=fake.date(),
+        registration_date_type=fake.word(),
+        registration_end_date=fake.date(),
+        registration_end_status=fake.word(),
+        transplant_consideration=fake.word(),
+        transplant_dialysis=fake.word(),
+        transplant_relationship=fake.word(),
+        transplant_sex=fake.word(),
+        cause_of_failure=fake.word(),
+        cause_of_failure_text=fake.word(),
+        cit_mins=fake.random_number(digits=3),
+        hla_mismatch=fake.word(),
+        ukt_suspension=fake.word(),
     )
 
 
@@ -151,7 +218,7 @@ def test_args_parse(mocker):
 def test_check_missing_patients(session: Session):
     # Create some test data
     db_data = [12345, 67890, 54321]
-    file_data = pd.Series([12345, 67890, 99999])
+    file_data = [12345, 67890, 99999]
 
     # Add test data to the database
     for uktssa_no in db_data:
@@ -168,7 +235,7 @@ def test_check_missing_patients(session: Session):
 def test_check_missing_transplants(session: Session):
     # Create some test data
     db_data = ["100_1", "100_2", "100_3"]
-    file_data = pd.Series(["100_1", "100_2", "100_4"])
+    file_data = ["100_1", "100_2", "100_4"]
 
     # Add test data to the database
     for registration_id in db_data:
@@ -327,46 +394,21 @@ def test_create_logs():
     os.rmdir(temp_dir)
 
 
-# def test_create_logs(mocker):
-#     # Create a mock logging config dictionary
-#     logconf = {
-#         "version": 1,
-#         "disable_existing_loggers": False,
-#         "handlers": {
-#             "console": {
-#                 "class": "logging.StreamHandler",
-#                 "level": "DEBUG",
-#                 "formatter": "simple",
-#             }
-#         },
-#         "loggers": {
-#             "nhsbt_import": {
-#                 "handlers": ["console"],
-#                 "level": "DEBUG",
-#             }
-#         },
-#         "formatters": {
-#             "simple": {
-#                 "format": "%(levelname)s %(message)s",
-#             }
-#         },
-#     }
+def test_create_output_dfs(df_columns):
+    output_dfs = create_output_dfs(df_columns)
 
-#     # Mock the yaml module to return the logconf dictionary
-#     mocker.patch("yaml.safe_load", MagicMock(return_value=logconf))
+    assert isinstance(output_dfs, dict)
+    assert set(output_dfs.keys()) == set(df_columns.keys())
 
-#     # Call the create_logs function
-#     logger = create_logs()
+    for sheet, cols in df_columns.items():
+        assert isinstance(output_dfs[sheet], pd.DataFrame)
+        assert output_dfs[sheet].shape == (0, len(cols))
 
-#     # Check that the logger has the correct attributes
-#     assert isinstance(logger, logging.Logger)
-#     assert logger.name == "nhsbt_import"
-#     assert logger.level == logging.DEBUG
-#     assert len(logger.handlers) == 1
-#     assert isinstance(logger.handlers[0], logging.StreamHandler)
-#     assert logger.handlers[0].level == logging.DEBUG
-#     assert isinstance(logger.handlers[0].formatter, logging.Formatter)
-#     assert logger.handlers[0].formatter._fmt == "%(levelname)s %(message)s"
+        if "UKT Suspension - NHSBT" in cols:
+            assert output_dfs[sheet]["UKT Suspension - NHSBT"].dtype == bool
+
+        if "UKT Suspension - RR" in cols:
+            assert output_dfs[sheet]["UKT Suspension - RR"].dtype == bool
 
 
 def test_create_session():
@@ -381,6 +423,72 @@ def test_create_session():
     assert session.bind.driver == "pyodbc"
     assert session.bind.url.host == "rr-sql-live"
     assert session.bind.url.database == "renalreg"
+
+
+def test_make_patient_match_row(incoming_patient, existing_patient):
+    match_row = _incoming_patient_test("foo", incoming_patient, existing_patient)
+    assert match_row["RR_No"] == existing_patient.rr_no
+    assert match_row["Surname - RR"] == existing_patient.surname
+    assert match_row["Forename - RR"] == existing_patient.forename
+    assert match_row["Sex - RR"] == existing_patient.sex
+    assert match_row["Date Birth - RR"] == existing_patient.ukt_date_birth
+    assert match_row["NHS Number - RR"] == existing_patient.new_nhs_no
+    match_row = _incoming_patient_test("bar", incoming_patient, None)
+    assert len(match_row) == 7
+
+
+def _incoming_patient_test(match_type, incoming_patient, existing_patient):
+    result = make_patient_match_row(match_type, incoming_patient, existing_patient)
+    assert result["Match Type"] == match_type
+    assert result["UKTSSA_No"] == incoming_patient.uktssa_no
+    assert result["Surname - NHSBT"] == incoming_patient.surname
+    assert result["Forename - NHSBT"] == incoming_patient.forename
+    assert result["Sex - NHSBT"] == incoming_patient.sex
+    assert result["Date Birth - NHSBT"] == incoming_patient.ukt_date_birth
+    assert result["NHS Number - NHSBT"] == incoming_patient.new_nhs_no
+    return result
+
+
+def test_make_transplant_match_row(incoming_transplant, existing_transplant):
+    match_type = fake.word()
+    row = make_transplant_match_row(
+        match_type, incoming_transplant, existing_transplant
+    )
+    assert isinstance(row, dict)
+    assert row.get("Match Type") == match_type
+    assert row.get("UKTSSA_No") == incoming_transplant.uktssa_no
+    assert row.get("Transplant ID - NHSBT") == incoming_transplant.transplant_id
+    assert row.get("Registration ID - NHSBT") == incoming_transplant.registration_id
+
+    assert row.get("Transplant Date - NHSBT") == incoming_transplant.transplant_date
+    assert row.get("Transplant Type - NHSBT") == incoming_transplant.transplant_type
+    assert row.get("Transplant Organ - NHSBT") == incoming_transplant.transplant_organ
+    assert row.get("Transplant Unit - NHSBT") == incoming_transplant.transplant_unit
+    assert row.get("Registration Date - NHSBT") == incoming_transplant.registration_date
+    assert (
+        row.get("Registration Date Type - NHSBT")
+        == incoming_transplant.registration_date_type
+    )
+    assert (
+        row.get("Registration End Date - NHSBT")
+        == incoming_transplant.registration_end_date
+    )
+    assert (
+        row.get("Registration End Status - NHSBT")
+        == incoming_transplant.registration_end_status
+    )
+    assert (
+        row.get("Transplant Consideration - NHSBT")
+        == incoming_transplant.transplant_consideration
+    )
+    assert (
+        row.get("Transplant Dialysis - NHSBT")
+        == incoming_transplant.transplant_dialysis
+    )
+    assert (
+        row.get("Transplant Relationship - NHSBT")
+        == incoming_transplant.transplant_relationship
+    )
 
 
 def test_update_nhsbt_patient(incoming_patient, existing_patient):
@@ -401,26 +509,49 @@ def test_update_nhsbt_patient(incoming_patient, existing_patient):
     assert updated_patient.ukt_date_birth == incoming_patient.ukt_date_birth
 
 
-def test_make_patient_match_row(incoming_patient, existing_patient):
-    match_row = _incoming_patient_test(incoming_patient, existing_patient, "foo")
-    assert match_row["DB RR_No"] == existing_patient.rr_no
-    assert match_row["DB Surname"] == existing_patient.surname
-    assert match_row["DB Forename"] == existing_patient.forename
-    assert match_row["DB Sex"] == existing_patient.sex
-    assert match_row["DB Date Birth"] == existing_patient.ukt_date_birth
-    assert match_row["DB NHS Number"] == existing_patient.new_nhs_no
-    match_row = _incoming_patient_test(incoming_patient, None, "bar")
-    assert len(match_row) == 8
-
-
-def _incoming_patient_test(incoming_patient, existing_patient, match_type):
-    result = make_patient_match_row(incoming_patient, existing_patient, match_type)
-    assert result["Match Type"] == match_type
-    assert result["UKTSSA_No"] == incoming_patient.uktssa_no
-    assert result["File RR_No"] is None
-    assert result["File Surname"] == incoming_patient.surname
-    assert result["File Forename"] == incoming_patient.forename
-    assert result["File Sex"] == incoming_patient.sex
-    assert result["File Date Birth"] == incoming_patient.ukt_date_birth
-    assert result["File NHS Number"] == incoming_patient.new_nhs_no
-    return result
+def test_update_nhsbt_transplant(existing_transplant, incoming_transplant):
+    updated_transplant = update_nhsbt_transplant(
+        incoming_transplant, existing_transplant
+    )
+    assert updated_transplant.rr_no == existing_transplant.rr_no
+    assert updated_transplant.uktssa_no == incoming_transplant.uktssa_no
+    assert updated_transplant.transplant_id == incoming_transplant.transplant_id
+    assert updated_transplant.registration_id == incoming_transplant.registration_id
+    assert updated_transplant.transplant_date == incoming_transplant.transplant_date
+    assert updated_transplant.transplant_type == incoming_transplant.transplant_type
+    assert updated_transplant.transplant_organ == incoming_transplant.transplant_organ
+    assert updated_transplant.transplant_unit == incoming_transplant.transplant_unit
+    assert updated_transplant.registration_date == incoming_transplant.registration_date
+    assert (
+        updated_transplant.registration_date_type
+        == incoming_transplant.registration_date_type
+    )
+    assert (
+        updated_transplant.registration_end_date
+        == incoming_transplant.registration_end_date
+    )
+    assert (
+        updated_transplant.registration_end_status
+        == incoming_transplant.registration_end_status
+    )
+    assert (
+        updated_transplant.transplant_consideration
+        == incoming_transplant.transplant_consideration
+    )
+    assert (
+        updated_transplant.transplant_dialysis
+        == incoming_transplant.transplant_dialysis
+    )
+    assert (
+        updated_transplant.transplant_relationship
+        == incoming_transplant.transplant_relationship
+    )
+    assert updated_transplant.transplant_sex == incoming_transplant.transplant_sex
+    assert updated_transplant.cause_of_failure == incoming_transplant.cause_of_failure
+    assert (
+        updated_transplant.cause_of_failure_text
+        == incoming_transplant.cause_of_failure_text
+    )
+    assert updated_transplant.cit_mins == incoming_transplant.cit_mins
+    assert updated_transplant.hla_mismatch == incoming_transplant.hla_mismatch
+    assert updated_transplant.ukt_suspension == incoming_transplant.ukt_suspension
