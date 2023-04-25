@@ -16,7 +16,7 @@
 
 <div align="center">
 
-<a>[![][issues-shield]][issues-url] [![][license-shield]][license-url]</a>
+<a>[![][issues-shield]][issues-url]</a>
 
 </div>
 
@@ -40,21 +40,17 @@ poetry install
 <br/>
 
 ## Usage
-Run the following point at the directory you created
+Run the following pointing at the directory you created
 
 ```sh
 poetry run import.py -d /path/to/the/directory
 ```
 
-This command will create an audit and error file in the declared directory. The error file holds any errors encountered during the run to aid with debugging.The audit file will be CSV that tracks new and updated data as well as highlighting missing or deleted patient.
+This command will create an audit and error file in the declared directory. The error file holds any errors encountered during the run to aid with debugging.The audit file will be an excel sheet that tracks new and updated data as well as highlighting missing or deleted patient.
 <br/><br/>
 
-## License
-
-Distributed under the MIT License.
 
 [issues-shield]: https://img.shields.io/badge/Issues-5-blue?style=for-the-badge
 [issues-url]: https://renalregistry.atlassian.net/jira/software/projects/NHSBT/boards/19
-[license-shield]: https://img.shields.io/github/license/othneildrew/Best-README-Template.svg?style=for-the-badge
-[license-url]: https://github.com/othneildrew/Best-README-Template/blob/master/LICENSE.txt
+
 
