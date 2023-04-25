@@ -39,7 +39,7 @@ poetry install
 ```
 
 ## Usage
-Run the following pointing at the directory you created
+Run the following, pointing at the directory you created
 
 ```sh
 poetry run import.py -d /path/to/the/directory
