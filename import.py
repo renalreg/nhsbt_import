@@ -232,14 +232,33 @@ def nhsbt_import(
     was previously included and checks against the deleted patients table to make sure no
     patients have been deleted in error.
 
+    Expected number of columns will need to be adjusted if NHSBT change the shape of their.
+    If we get more or less an error is raised.
+
     Args:
         input_file_path (str): NHSBT file path
         audit_file_path (str): Output file path
         session (Session): An sqlalch session
         log (logging.Logger): A logger
+
+    Raises:
+        ValueError: Number of columns in the NHSBT file isn't as expected
     """
+
     # TODO: The first step is cleaning this file with Notepad++ but I'm sure we could do this in code
+
+    #########################
+    expected_number_of_columns = 6
+    #########################
+
     nhsbt_df = pd.read_csv(input_file_path)
+    nhsbt_number_of_columns = nhsbt_df.shape[1]
+
+    if expected_number_of_columns != nhsbt_number_of_columns:
+        raise ValueError(
+            f"Expected {expected_number_of_columns} colums in the NHSBT file but there are {nhsbt_number_of_columns}"
+        )
+
     output_dfs = create_output_dfs(df_columns)
     transplant_ids = []
 
