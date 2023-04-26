@@ -181,10 +181,7 @@ def import_transplants(
 
             existing_transplant = results[0]
 
-            if existing_transplant == incoming_transplant:
-                log.info("No Update required")
-
-            else:
+            if existing_transplant != incoming_transplant:
                 log.info("Updating transplant")
 
                 match_row = make_transplant_match_row(
@@ -200,6 +197,10 @@ def import_transplants(
                 )
 
                 # session.commit()
+
+            else:
+                log.info("No Update required")
+
         elif len(results) == 0:
             log.info(f"Adding transplant {incoming_transplant.registration_id}")
 
@@ -256,7 +257,7 @@ def nhsbt_import(
 
     if expected_number_of_columns != nhsbt_number_of_columns:
         raise ValueError(
-            f"Expected {expected_number_of_columns} colums in the NHSBT file but there are {nhsbt_number_of_columns}"
+            f"Expected {expected_number_of_columns} columns in the NHSBT file but there are {nhsbt_number_of_columns}"
         )
 
     output_dfs = create_output_dfs(df_columns)
