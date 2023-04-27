@@ -75,6 +75,102 @@ def check_missing_transplants(session: Session, file_data: list[str]) -> list[st
     return list(set(db_data) - set(file_data))
 
 
+def compare_patients(
+    incoming_patient: UKT_Patient, existing_patient: UKT_Patient
+) -> bool:
+    # Ignore rr_no as it will never match
+    if incoming_patient.surname != existing_patient.surname:
+        return False
+    if incoming_patient.forename != existing_patient.forename:
+        return False
+    if incoming_patient.sex != existing_patient.sex:
+        return False
+    if incoming_patient.post_code != existing_patient.post_code:
+        return False
+    if incoming_patient.new_nhs_no != existing_patient.new_nhs_no:
+        return False
+    if incoming_patient.chi_no != existing_patient.chi_no:
+        return False
+    if incoming_patient.hsc_no != existing_patient.hsc_no:
+        return False
+    if incoming_patient.ukt_date_death != existing_patient.ukt_date_death:
+        return False
+    if incoming_patient.ukt_date_birth != existing_patient.ukt_date_birth:
+        return False
+
+    return True
+
+
+def compare_transplants(
+    incoming_transplant: UKT_Patient, existing_transplant: UKT_Patient
+) -> bool:
+    if incoming_transplant.transplant_id != existing_transplant.transplant_id:
+        return False
+    if incoming_transplant.uktssa_no != existing_transplant.uktssa_no:
+        return False
+    if incoming_transplant.transplant_date != existing_transplant.transplant_date:
+        return False
+    if incoming_transplant.transplant_type != existing_transplant.transplant_type:
+        return False
+    if incoming_transplant.transplant_organ != existing_transplant.transplant_organ:
+        return False
+    if incoming_transplant.transplant_unit != existing_transplant.transplant_unit:
+        return False
+    if incoming_transplant.ukt_fail_date != existing_transplant.ukt_fail_date:
+        return False
+    if incoming_transplant.registration_id != existing_transplant.registration_id:
+        return False
+    if incoming_transplant.registration_date != existing_transplant.registration_date:
+        return False
+    if (
+        incoming_transplant.registration_date_type
+        != existing_transplant.registration_date_type
+    ):
+        return False
+    if (
+        incoming_transplant.registration_end_date
+        != existing_transplant.registration_end_date
+    ):
+        return False
+    if (
+        incoming_transplant.registration_end_status
+        != existing_transplant.registration_end_status
+    ):
+        return False
+    if (
+        incoming_transplant.transplant_consideration
+        != existing_transplant.transplant_consideration
+    ):
+        return False
+    if (
+        incoming_transplant.transplant_dialysis
+        != existing_transplant.transplant_dialysis
+    ):
+        return False
+    if (
+        incoming_transplant.transplant_relationship
+        != existing_transplant.transplant_relationship
+    ):
+        return False
+    if incoming_transplant.transplant_sex != existing_transplant.transplant_sex:
+        return False
+    if incoming_transplant.cause_of_failure != existing_transplant.cause_of_failure:
+        return False
+    if (
+        incoming_transplant.cause_of_failure_text
+        != existing_transplant.cause_of_failure_text
+    ):
+        return False
+    if incoming_transplant.cit_mins != existing_transplant.cit_mins:
+        return False
+    if incoming_transplant.hla_mismatch != existing_transplant.hla_mismatch:
+        return False
+    if incoming_transplant.ukt_suspension != existing_transplant.ukt_suspension:
+        return False
+    # Ignore rr_no as it will never match
+    return True
+
+
 def create_df(name: str, columns: dict[str, list[str]]) -> pd.DataFrame:
     return pd.DataFrame(columns=columns[name])
 
@@ -182,9 +278,9 @@ def create_output_dfs(df_columns: dict[str, list[str]]) -> dict[str, pd.DataFram
 
 
 def create_session() -> Session:
-    driver = "SQL+Server+Native+Client+11.0"
-    engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
-    # engine = create_engine("postgresql://postgres:password@localhost:5432/radar")
+    # driver = "SQL+Server+Native+Client+11.0"
+    # engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
+    engine = create_engine("postgresql://postgres:password@localhost:5432/radar")
 
     return Session(engine, future=True)
 
