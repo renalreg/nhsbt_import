@@ -9,7 +9,10 @@ from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.dataframe import dataframe_to_rows
 from sqlalchemy.orm import Session
-from ukrr_models.nhsbt_models import UKT_Patient, UKT_Transplant  # type: ignore [import]
+from ukrr_models.nhsbt_models import (
+    UKT_Patient,  # type: ignore [import]
+    UKT_Transplant,
+)
 from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore [import]
 
 from nhsbt_import.df_columns import df_columns
@@ -104,8 +107,6 @@ def import_patient(
 
             existing_patient = update_nhsbt_patient(incoming_patient, existing_patient)
 
-            # session.commit()
-
     # If len == 0 add patient to DB
     elif len(results) == 0:
         log.info(f"Adding patient {incoming_patient.uktssa_no}")
@@ -117,8 +118,7 @@ def import_patient(
 
         output_dfs["new_patients"] = add_df_row(output_dfs["new_patients"], match_row)
 
-        # session.add(incoming_patient)
-        # session.commit()
+        session.add(incoming_patient)
 
     # If len > 1 something is wrong, raise
     else:
@@ -201,8 +201,6 @@ def import_transplants(
                     incoming_transplant, existing_transplant
                 )
 
-                # session.commit()
-
         # If len == 0 add transplant to DB
         elif len(results) == 0:
             log.info(f"Adding transplant {incoming_transplant.registration_id}")
@@ -215,8 +213,7 @@ def import_transplants(
                 output_dfs["new_transplants"], match_row
             )
 
-            # session.add(incoming_transplant)
-            # session.commit()
+            session.add(incoming_transplant)
 
         # If len > 1 something is wrong, raise
         else:
@@ -349,6 +346,8 @@ def main():
     audit_file_path = os.path.join(args.directory, "audit.xlsx")
     session = create_session()
     nhsbt_import(input_file_path, audit_file_path, session, log)
+    if args.commit:
+        session.commit()
     session.close()
 
 
