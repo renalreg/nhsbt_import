@@ -1,0 +1,42 @@
+[tool.poetry]
+name = "nhsbt-import"
+version = "0.1.0"
+description = "Import script for NHSBT data"
+authors = ["andyatterton <andrew.atterton@ukkidney.org>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "nhsbt_import"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pyyaml = "^6.0"
+sqlalchemy = "^2.0.6"
+pandas = "^1.5.3"
+ukrr-models = {git = "https://github.com/renalreg/ukrr_models.git"}
+pyodbc = "^4.0.35"
+xlsxwriter = "^3.1.0"
+openpyxl = "^3.1.2"
+psycopg2 = "^2.9.6"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.1.0"
+pytest = "^7.3.1"
+pytest-mock = "^3.10.0"
+faker = "^18.4.0"
+ruff = "^0.0.262"
+mypy = "^1.2.0"
+bandit = "^1.7.5"
+tox = "^4.4.12"
+pytest-cov = "^4.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+ignore = [
+  "E501", # Line too long (let Black handle this)
+]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".vscode", ".tox", ".ruff_cache", ".pytest_cache", ".mypy_cache"]
