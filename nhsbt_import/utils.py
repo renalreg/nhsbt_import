@@ -45,6 +45,11 @@ def args_parse(argv=None) -> argparse.Namespace:
         type=str,
         help="Specify the directory that holds the input file",
     )
+    parser.add_argument(
+        "--commit",
+        action="store_true",
+        help="Flag to turn on committing to the database",
+    )
 
     args = parser.parse_args(argv)
 
