@@ -3,11 +3,11 @@ import logging
 import logging.config
 import os
 import sys
-from datetime import datetime
 from typing import Optional
 
 import pandas as pd
 from dateutil.parser import parse
+from datetime import date
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from ukrr_models.nhsbt_models import UKT_Patient, UKT_Transplant  # type: ignore [import]
@@ -191,13 +191,13 @@ def create_incoming_patient(
 
     return UKT_Patient(
         uktssa_no=int(uktssa_no),
-        surname=row["UKTR_RSURNAME"],
-        forename=row["UKTR_RFORENAME"],
-        sex=row["UKTR_RSEX"],
-        post_code=row["UKTR_RPOSTCODE"],
-        new_nhs_no=row["UKTR_RNHS_NO"],
-        chi_no=row["UKTR_RCHI_NO_SCOT"],
-        hsc_no=row["UKTR_RCHI_NO_NI"],
+        surname=format_str(row["UKTR_RSURNAME"]),
+        forename=format_str(row["UKTR_RFORENAME"]),
+        sex=format_str(row["UKTR_RSEX"]),
+        post_code=format_str(row["UKTR_RPOSTCODE"]),
+        new_nhs_no=format_int(row["UKTR_RNHS_NO"]),
+        chi_no=format_int(row["UKTR_RCHI_NO_SCOT"]),
+        hsc_no=format_int(row["UKTR_RCHI_NO_NI"]),
         rr_no=None,
         ukt_date_death=format_date(row["UKTR_DDATE"]),
         ukt_date_birth=format_date(row["UKTR_RDOB"]),
@@ -207,29 +207,41 @@ def create_incoming_patient(
 def create_incoming_transplant(
     row: pd.Series, transplant_counter: int
 ) -> UKT_Transplant:
+    hla_mismatch = row[f"uktr_hla_mm{transplant_counter}"]
+    if pd.isna(hla_mismatch):
+        hla_mismatch = None
+    else:
+        str(hla_mismatch)
+
     return UKT_Transplant(
-        transplant_id=row[f"uktr_tx_id{transplant_counter}"],
-        uktssa_no=row["UKTR_ID"],
-        transplant_date=row[f"uktr_txdate{transplant_counter}"],
-        transplant_type=row[f"uktr_dgrp{transplant_counter}"],
-        transplant_organ=row[f"uktr_tx_type{transplant_counter}"],
-        transplant_unit=row[f"uktr_tx_unit{transplant_counter}"],
-        ukt_fail_date=row[f"uktr_faildate{transplant_counter}"],
+        transplant_id=format_int(row[f"uktr_tx_id{transplant_counter}"]),
+        uktssa_no=int(row["UKTR_ID"]),
+        transplant_date=format_date(row[f"uktr_txdate{transplant_counter}"]),
+        transplant_type=format_str(row[f"uktr_dgrp{transplant_counter}"]),
+        transplant_organ=format_str(row[f"uktr_tx_type{transplant_counter}"]),
+        transplant_unit=format_str(row[f"uktr_tx_unit{transplant_counter}"]),
+        ukt_fail_date=format_date(row[f"uktr_faildate{transplant_counter}"]),
         rr_no=None,
         registration_id=f'{int(row["UKTR_ID"])}_{transplant_counter}',
-        registration_date=row[f"uktr_date_on{transplant_counter}"],
-        registration_date_type=row[f"uktr_list_status{transplant_counter}"],
-        registration_end_date=row[f"uktr_removal_date{transplant_counter}"],
-        registration_end_status=row[f"uktr_endstat{transplant_counter}"],
-        transplant_consideration=row[f"uktr_tx_list{transplant_counter}"],
-        transplant_dialysis=row[f"uktr_dial_at_tx{transplant_counter}"],
-        transplant_relationship=row[f"uktr_relationship{transplant_counter}"],
-        transplant_sex=row[f"uktr_dsex{transplant_counter}"],
-        cause_of_failure=row[f"uktr_cof{transplant_counter}"],
-        cause_of_failure_text=row[f"uktr_other_cof_text{transplant_counter}"],
-        cit_mins=row[f"uktr_cit_mins{transplant_counter}"],
-        hla_mismatch=row[f"uktr_hla_mm{transplant_counter}"],
-        ukt_suspension=row[f"uktr_suspension_{transplant_counter}"],
+        registration_date=format_date(row[f"uktr_date_on{transplant_counter}"]),
+        registration_date_type=format_str(row[f"uktr_list_status{transplant_counter}"]),
+        registration_end_date=format_date(
+            row[f"uktr_removal_date{transplant_counter}"]
+        ),
+        registration_end_status=format_str(row[f"uktr_endstat{transplant_counter}"]),
+        transplant_consideration=format_str(row[f"uktr_tx_list{transplant_counter}"]),
+        transplant_dialysis=format_str(row[f"uktr_dial_at_tx{transplant_counter}"]),
+        transplant_relationship=format_str(
+            row[f"uktr_relationship{transplant_counter}"]
+        ),
+        transplant_sex=format_str(row[f"uktr_dsex{transplant_counter}"]),
+        cause_of_failure=format_str(row[f"uktr_cof{transplant_counter}"]),
+        cause_of_failure_text=format_str(
+            row[f"uktr_other_cof_text{transplant_counter}"]
+        ),
+        cit_mins=format_str(row[f"uktr_cit_mins{transplant_counter}"]),
+        hla_mismatch=hla_mismatch,
+        ukt_suspension=format_bool(row[f"uktr_suspension_{transplant_counter}"]),
     )
 
 
@@ -244,7 +256,7 @@ def create_logs(directory: str) -> logging.Logger:
     Returns:
         logging.Logger: A logger nhsbt_logger
     """
-    errors_file_path = os.path.abspath(f"{directory}/errors.log").replace("\\", "/")[2:]
+    errors_file_path = os.path.abspath(f"{directory}/errors.log").replace("\\", "/")
 
     logging.config.fileConfig(
         fname="logconf.conf",
@@ -283,9 +295,10 @@ def create_output_dfs(df_columns: dict[str, list[str]]) -> dict[str, pd.DataFram
 
 
 def create_session() -> Session:
-    # driver = "SQL+Server+Native+Client+11.0"
-    # engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
-    engine = create_engine("postgresql://postgres:password@localhost:5432/radar")
+    driver = "SQL+Server+Native+Client+11.0"
+    engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
+    # engine = create_engine("postgresql://postgres:password@localhost:5432/radar")
+    # , autoflush=False
 
     return Session(engine, future=True)
 
@@ -297,8 +310,32 @@ def deleted_patient_check(session: Session, file_patients: list[str]) -> list[st
     return list(db_patients.intersection(set(file_patients)))
 
 
-def format_date(str_date: Optional[str]) -> Optional[datetime]:
-    return parse(str_date) if isinstance(str_date, str) else None
+def format_bool(value):
+    if value in ("0", "0.0", 0, 0.0, "False", "false", False):
+        return False
+    elif value in ("1", "1.0", 1, 1.0, "True", "true", True):
+        return True
+    else:
+        return None
+
+
+def format_date(str_date: Optional[str]) -> Optional[date]:
+    return (
+        parse(str_date).date()
+        if isinstance(str_date, str) and len(str_date) > 0
+        else None
+    )
+
+
+def format_int(value):
+    return None if pd.isna(value) else int(value)
+
+
+def format_str(value):
+    if isinstance(value, float) and not pd.isna(value):
+        return str(int(value))
+    else:
+        return None if pd.isna(value) else str(value)
 
 
 def get_input_file_path(directory: str, log: logging.Logger) -> str:
@@ -385,7 +422,7 @@ def make_missing_transplant_match_row(
         "Cause of Failure Text - RR": missing_transplant.cause_of_failure_text,
         "CIT Mins - RR": missing_transplant.cit_mins,
         "HLA Mismatch - RR": missing_transplant.hla_mismatch,
-        "UKT Suspension - RR": missing_transplant.ukt_suspension,
+        "UKT Suspension - RR": format_bool(missing_transplant.ukt_suspension),
     }
 
 
@@ -442,7 +479,7 @@ def make_transplant_match_row(
         "Cause of Failure Text - NHSBT": incoming_transplant.cause_of_failure_text,
         "CIT Mins - NHSBT": incoming_transplant.cit_mins,
         "HLA Mismatch - NHSBT": incoming_transplant.hla_mismatch,
-        "UKT Suspension - NHSBT": incoming_transplant.ukt_suspension,
+        "UKT Suspension - NHSBT": format_bool(incoming_transplant.ukt_suspension),
     }
 
     if existing_transplant:
@@ -478,7 +515,9 @@ def make_transplant_match_row(
         ] = existing_transplant.cause_of_failure_text
         transplant_row["CIT Mins - RR"] = existing_transplant.cit_mins
         transplant_row["HLA Mismatch - RR"] = existing_transplant.hla_mismatch
-        transplant_row["UKT Suspension - RR"] = existing_transplant.ukt_suspension
+        transplant_row["UKT Suspension - RR"] = format_bool(
+            existing_transplant.ukt_suspension
+        )
 
     return transplant_row
 
@@ -487,17 +526,52 @@ def update_nhsbt_patient(
     incoming_patient: UKT_Patient, existing_patient: UKT_Patient
 ) -> UKT_Patient:
     # Incoming RR will always be None so preserve existing
-    existing_rr = existing_patient.rr_no
-    existing_patient = incoming_patient
-    existing_patient.rr_no = existing_rr
-    return existing_patient
+    existing_patient.uktssa_no = incoming_patient.uktssa_no
+    existing_patient.surname = incoming_patient.surname
+    existing_patient.forename = incoming_patient.forename
+    existing_patient.sex = incoming_patient.sex
+    existing_patient.post_code = incoming_patient.post_code
+    existing_patient.new_nhs_no = incoming_patient.new_nhs_no
+    existing_patient.chi_no = incoming_patient.chi_no
+    existing_patient.hsc_no = incoming_patient.hsc_no
+    existing_patient.ukt_date_death = incoming_patient.ukt_date_death
+    existing_patient.ukt_date_birth = incoming_patient.ukt_date_birth
 
 
 def update_nhsbt_transplant(
     incoming_transplant: UKT_Transplant, existing_transplant: UKT_Transplant
 ) -> UKT_Transplant:
     # Incoming RR will always be None so preserve existing
-    existing_rr = existing_transplant.rr_no
-    existing_transplant = incoming_transplant
-    existing_transplant.rr_no = existing_rr
-    return existing_transplant
+    existing_transplant.transplant_id = incoming_transplant.transplant_id
+    existing_transplant.uktssa_no = incoming_transplant.uktssa_no
+    existing_transplant.transplant_date = incoming_transplant.transplant_date
+    existing_transplant.transplant_type = incoming_transplant.transplant_type
+    existing_transplant.transplant_organ = incoming_transplant.transplant_organ
+    existing_transplant.transplant_unit = incoming_transplant.transplant_unit
+    existing_transplant.ukt_fail_date = incoming_transplant.ukt_fail_date
+    existing_transplant.registration_id = incoming_transplant.registration_id
+    existing_transplant.registration_date = incoming_transplant.registration_date
+    existing_transplant.registration_date_type = (
+        incoming_transplant.registration_date_type
+    )
+    existing_transplant.registration_end_date = (
+        incoming_transplant.registration_end_date
+    )
+    existing_transplant.registration_end_status = (
+        incoming_transplant.registration_end_status
+    )
+    existing_transplant.transplant_consideration = (
+        incoming_transplant.transplant_consideration
+    )
+    existing_transplant.transplant_dialysis = incoming_transplant.transplant_dialysis
+    existing_transplant.transplant_relationship = (
+        incoming_transplant.transplant_relationship
+    )
+    existing_transplant.transplant_sex = incoming_transplant.transplant_sex
+    existing_transplant.cause_of_failure = incoming_transplant.cause_of_failure
+    existing_transplant.cause_of_failure_text = (
+        incoming_transplant.cause_of_failure_text
+    )
+    existing_transplant.cit_mins = incoming_transplant.cit_mins
+    existing_transplant.hla_mismatch = incoming_transplant.hla_mismatch
+    existing_transplant.ukt_suspension = incoming_transplant.ukt_suspension

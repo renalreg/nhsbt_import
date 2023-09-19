@@ -105,7 +105,7 @@ def import_patient(
                 output_dfs["updated_patients"], match_row
             )
 
-            existing_patient = update_nhsbt_patient(incoming_patient, existing_patient)
+            update_nhsbt_patient(incoming_patient, existing_patient)
 
     # If len == 0 add patient to DB
     elif len(results) == 0:
@@ -197,9 +197,7 @@ def import_transplants(
                     output_dfs["updated_transplants"], match_row
                 )
 
-                existing_transplant = update_nhsbt_transplant(
-                    incoming_transplant, existing_transplant
-                )
+                update_nhsbt_transplant(incoming_transplant, existing_transplant)
 
         # If len == 0 add transplant to DB
         elif len(results) == 0:
@@ -251,10 +249,21 @@ def nhsbt_import(
     # TODO: The first step is cleaning this file with Notepad++ but I'm sure we could do this in code
 
     #########################
-    expected_number_of_columns = 6
+    expected_number_of_columns = 125
     #########################
 
-    nhsbt_df = pd.read_csv(input_file_path)
+    nhsbt_df = pd.read_csv(
+        input_file_path,
+        dtype={
+            "uktr_hla_mm1": str,
+            "uktr_hla_mm2": str,
+            "uktr_hla_mm3": str,
+            "uktr_hla_mm4": str,
+            "uktr_hla_mm5": str,
+            "uktr_hla_mm6": str,
+        },
+    )
+
     nhsbt_number_of_columns = nhsbt_df.shape[1]
 
     if expected_number_of_columns != nhsbt_number_of_columns:
