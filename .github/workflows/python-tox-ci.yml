@@ -3,10 +3,10 @@ name: Python Tox Multiplatform CI
 on:
   push:
     branches:
-      - "main"
+      - "action-playground-main"
   pull_request:
     branches:
-      - "main"
+      - "action-playground-main"
 
 jobs:
   build:
