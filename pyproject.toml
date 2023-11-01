@@ -33,10 +33,15 @@ pytest-cov = "^4.0.0"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.ruff]
-ignore = [
-  "E501", # Line too long (let Black handle this)
-]
+[tool.black]
+exclude = '(\.git|\.tox|\.vscode|\.pytest_cache|\.mypy_cache)'
 
 [tool.bandit]
 exclude_dirs = ["tests", ".vscode", ".tox", ".ruff_cache", ".pytest_cache", ".mypy_cache"]
+
+[tool.pylint]
+disable = "too-many-locals, too-many-return-statements, too-many-branches"
+max-line-length = 160
+notes-rgx = 'TODO:\s+[^[\n]*$'
+enable="fixme"
+notes="''"
