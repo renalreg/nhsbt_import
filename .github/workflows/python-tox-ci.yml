@@ -29,6 +29,6 @@ jobs:
 
       - name: Install dependencies
         run: poetry install
-        
+
       - name: Test with tox
         run: poetry run tox

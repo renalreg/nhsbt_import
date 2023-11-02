@@ -2,8 +2,7 @@ name: release-please
 
 on:
   push:
-    branches:
-      - action-playground-main
+    branches: action-playground-main
 
   workflow_dispatch:
 
@@ -11,25 +10,23 @@ permissions:
   contents: write
   pull-requests: write
 
-
-
 jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-
-      - name : Checkout
+      - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Extract Package Name
-        run: |
-          package_name=$(jq -r '.tool.poetry.name' pyproject.toml)
-          echo "::set-output name=package_name::$package_name"
-      
+      - name: Install Poetry
+        uses: Gr1N/setup-poetry@v8
 
+      - id: extract_package_name
+        name: Extract Package Name
+        run: |
+          package_name=$(poetry version | cut -d ' ' -f 1)
 
       - name: Release Please
         uses: google-github-actions/release-please-action@v3
         with:
-          release-type: node
+          release-type: python
           package-name: ${{ steps.extract_package_name.outputs.package_name }}
