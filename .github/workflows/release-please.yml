@@ -1,3 +1,5 @@
+name: release-please
+
 on:
   push:
     branches:
@@ -9,13 +11,23 @@ permissions:
   contents: write
   pull-requests: write
 
-name: release-please
-
 jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - uses: google-github-actions/release-please-action@v3
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Poetry
+        uses: Gr1N/setup-poetry@v8
+
+      - id: extract_package_name
+        name: Extract Package Name
+        run: |
+          package_name=$(poetry version | cut -d ' ' -f 1)
+
+      - name: Release Please
+        uses: google-github-actions/release-please-action@v3
         with:
-          release-type: node
-          package-name: <your-package-name>
+          release-type: python
+          package-name: ${{ steps.extract_package_name.outputs.package_name }}
