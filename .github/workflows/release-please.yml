@@ -20,6 +20,9 @@ jobs:
         run: |
           package_name=$(jq -r '.tool.poetry.name' pyproject.toml)
           echo "::set-output name=package_name::$package_name"
+      
+      - name : Checkout
+        uses: actions/checkout@v2
 
       - name: Release Please
         uses: google-github-actions/release-please-action@v3
