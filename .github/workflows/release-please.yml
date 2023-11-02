@@ -2,7 +2,8 @@ name: release-please
 
 on:
   push:
-    branches: action-playground-main
+    branches:
+      - action-playground-main
 
   workflow_dispatch:
 
