@@ -1,4 +1,4 @@
-name: Test
+name: Python Test
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  test:
     runs-on: ${{ matrix.platform }}
     strategy:
       matrix:
@@ -19,6 +19,10 @@ jobs:
           - ubuntu-latest
           - windows-latest
         python-version: ["3.11"]
+
+    env:
+      DIRECTORY_TO_SCAN: ./
+      TODO_REGEX: 'TODO:(?!\s*\[[A-Za-z0-9-]+\])'
 
     steps:
       - uses: actions/checkout@v4
@@ -29,19 +33,18 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # - name: Install dependencies
-      #   run: poetry install
+      - name: Install dependencies
+        run: poetry install
 
-      # - name: Test with tox
-      #   run: poetry run tox
+      - name: Test with tox
+        run: poetry run tox
 
-      - name: TODO Check
+      - name: TODO check
         run: |
-          directory_to_scan="./"
-          todo_regex="TODO:(?!\s*\[[A-Za-z0-9-]+\])"
-          result=$(find "$directory_to_scan" -type f -name "*.py" -exec grep -Hn -P "$todo_regex" {} \);
+          result=$(find "$DIRECTORY_TO_SCAN" -type f -name "*.py" -exec grep -Hn -P "$TODO_REGEX" {} \;)
 
           if [ -n "$result" ]; then
             echo "Non-matching TODO comments found:"
-            exit 1  # Fail the workflow
+            echo "$result"
+            exit 1
           fi
