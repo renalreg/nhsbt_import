@@ -39,7 +39,7 @@ from nhsbt_import.utils import (
     update_nhsbt_transplant,
 )
 
-# TODO: Fix future warning regarding append
+# TODO:[NHSBT-7] Fix future warning regarding append
 # Pandas is moaning about append being made obsolete in the future
 # This hides that warning
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -246,7 +246,7 @@ def nhsbt_import(
         ValueError: Number of columns in the NHSBT file isn't as expected
     """
 
-    # TODO: The first step is cleaning this file with Notepad++ but I'm sure we could do this in code
+    # TODO: [NHSBT-6] The first step is cleaning this file with Notepad++ but I'm sure we could do this in code
 
     #########################
     expected_number_of_columns = 125

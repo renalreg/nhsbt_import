@@ -370,7 +370,7 @@ def get_input_file_path(directory: str, log: logging.Logger) -> str:
 def make_deleted_patient_row(
     match_type: str, deleted_patient: UKRR_Deleted_Patient
 ) -> dict[str, str]:
-    # TODO: Add the other columns CHI etc
+    # TODO: [NHSBT-8] Add the other columns CHI etc
     return {
         "Match Type": match_type,
         "UKTSSA_No": deleted_patient.uktssa_no,
@@ -386,7 +386,7 @@ def make_deleted_patient_row(
 def make_missing_patient_row(
     match_type: str, missing_patient: UKT_Patient
 ) -> dict[str, str]:
-    # TODO: Add the other columns CHI etc
+    # TODO: [NHSBT-8] Add the other columns CHI etc
     return {
         "Match Type": match_type,
         "UKTSSA_No": missing_patient.uktssa_no,
@@ -431,7 +431,7 @@ def make_patient_match_row(
     incoming_patient: UKT_Patient,
     existing_patient: Optional[UKT_Patient],
 ) -> dict[str, str]:
-    # TODO: Add the other columns CHI etc
+    # TODO: [NHSBT-8] Add the other columns CHI etc
     patient_row = {
         "Match Type": match_type,
         "UKTSSA_No": incoming_patient.uktssa_no,
