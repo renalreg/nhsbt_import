@@ -1,4 +1,4 @@
-name: release-please
+name: Python Release
 
 on:
   push:
