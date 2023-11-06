@@ -1,20 +1,61 @@
+"""
+This module contains a number of utility functions that are used by the main
+nhsbt_import.py script.
+
+Functions:
+    add_df_row(df, row): Adds a row to a dataframe
+    args_parse(argv): Preforms some check on the inputs from the command line
+    check_missing_patients(session, file_data): Checks for patients missing from the file
+    check_missing_transplants(session, file_data): Checks for transplants missing from the file
+    compare_patients(incoming_patient, existing_patient): Compares incoming and existing patient data
+    compare_transplants(incoming_transplant, existing_transplant): Compares incoming and existing transplant data
+    create_df(name, columns): Creates a dataframe
+    create_incoming_patient(index, row, log): Creates an incoming patient object
+    create_incoming_transplant(row, transplant_counter): Creates an incoming transplant object
+    create_logs(directory): Creates a logger
+    create_output_dfs(df_columns): Creates all the output dataframes
+    create_session(): Creates a database session
+    deleted_patient_check(session, file_patients): Checks patient identifiers against the deleted patient table
+    format_bool(value): Converts a value to a bool
+    format_date(str_date): Converts a string to a date. Returns None if the string is empty
+    format_int(value): Converts a value to an int
+    format_str(value): Converts a value to a string
+    get_input_file_path(directory, log): Checks the supplied directory for the NHSBT
+    make_deleted_patient_row(match_type, deleted_patient): Creates a row for the deleted patient sheet
+    make_missing_patient_row(match_type, missing_patient): Creates a row for the missing patient sheet
+    make_missing_transplant_match_row(missing_transplant): Creates a row for the missing transplant sheet
+    make_patient_match_row(match_type, incoming_patient, existing_patient): Creates a row for the patient match sheet
+    make_transplant_match_row(match_type, incoming_transplant, existing_transplant): Creates a row for the transplant match sheet
+    update_nhsbt_patient(incoming_patient, existing_patient): Updates an existing patient
+    update_nhsbt_transplant(incoming_transplant, existing_transplant): Updates an existing transplant
+"""
 import argparse
 import logging
 import logging.config
 import os
 import sys
-from typing import Optional
+from datetime import date
+from typing import Optional, Any
 
 import pandas as pd
 from dateutil.parser import parse
-from datetime import date
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from ukrr_models.nhsbt_models import UKT_Patient, UKT_Transplant  # type: ignore [import]
+from ukrr_models.nhsbt_models import UKTPatient, UKTTransplant  # type: ignore [import]
 from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore [import]
 
 
 def add_df_row(df: pd.DataFrame, row: dict[str, str]) -> pd.DataFrame:
+    """
+    Adds a row to a dataframe
+
+    Args:
+        df (pd.DataFrame): dataframe to add row to
+        row (dict[str, str]): row to add
+
+    Returns:
+        pd.DataFrame: dataframe with row added
+    """
     row_df = pd.DataFrame(row, index=[0])
     return pd.concat([df, row_df], ignore_index=True)
 
@@ -67,22 +108,53 @@ def args_parse(argv=None) -> argparse.Namespace:
 
 
 def check_missing_patients(session: Session, file_data: list[int]) -> list[int]:
-    results = session.query(UKT_Patient.uktssa_no).all()
+    """
+    Checks for patients missing from the file
+
+    Args:
+        session (Session): a database session
+        file_data (list[int]): a list of patient identifiers from the file
+
+    Returns:
+        list[int]: a list of patient identifiers missing from the file
+    """
+    results = session.query(UKTPatient.uktssa_no).all()
     db_data = [result[0] for result in results]
 
     return list(set(db_data) - set(file_data))
 
 
 def check_missing_transplants(session: Session, file_data: list[str]) -> list[str]:
-    results = session.query(UKT_Transplant.registration_id).all()
+    """
+    Checks for transplants missing from the file
+
+    Args:
+        session (Session): a database session
+        file_data (list[str]): a list of transplant identifiers from the file
+
+    Returns:
+        list[str]: a list of transplant identifiers missing from the file
+    """
+    results = session.query(UKTTransplant.registration_id).all()
     db_data = [result[0] for result in results]
 
     return list(set(db_data) - set(file_data))
 
 
 def compare_patients(
-    incoming_patient: UKT_Patient, existing_patient: UKT_Patient
+    incoming_patient: UKTPatient, existing_patient: UKTPatient
 ) -> bool:
+    """
+    Compares incoming and existing patient data. Ignore rr_no as it will never match
+    because it is always None in the incoming data.
+
+    Args:
+        incoming_patient (UKTPatient): An incoming patient object
+        existing_patient (UKTPatient): An existing patient object
+
+    Returns:
+        bool: True if the data matches, False otherwise
+    """
     # Ignore rr_no as it will never match
     if incoming_patient.surname != existing_patient.surname:
         return False
@@ -107,8 +179,18 @@ def compare_patients(
 
 
 def compare_transplants(
-    incoming_transplant: UKT_Patient, existing_transplant: UKT_Patient
+    incoming_transplant: UKTPatient, existing_transplant: UKTPatient
 ) -> bool:
+    """
+    Compares incoming and existing transplant data.
+
+    Args:
+        incoming_transplant (UKTPatient): An incoming transplant object
+        existing_transplant (UKTPatient): An existing transplant object
+
+    Returns:
+        bool: True if the data matches, False otherwise
+    """
     if incoming_transplant.transplant_id != existing_transplant.transplant_id:
         return False
     if incoming_transplant.uktssa_no != existing_transplant.uktssa_no:
@@ -172,24 +254,48 @@ def compare_transplants(
         return False
     if incoming_transplant.ukt_suspension != existing_transplant.ukt_suspension:
         return False
-    # Ignore rr_no as it will never match
+
     return True
 
 
 def create_df(name: str, columns: dict[str, list[str]]) -> pd.DataFrame:
+    """
+    Creates a dataframe
+
+    Args:
+        name (str): Name of the dataframe
+        columns (dict[str, list[str]]): Columns for the dataframe
+
+    Returns:
+        pd.DataFrame: A dataframe with the supplied columns and given name
+    """
     return pd.DataFrame(columns=columns[name])
 
 
 def create_incoming_patient(
     index: int, row: pd.Series, log: logging.Logger
-) -> UKT_Patient:
+) -> UKTPatient:
+    """
+    Creates an incoming patient object
+
+    Args:
+        index (int): A row index
+        row (pd.Series): The row data to create the patient from
+        log (logging.Logger): Logger
+
+    Raises:
+        ValueError: Raised if UKTR_ID is not a valid number
+
+    Returns:
+        UKTPatient: A UKTPatient object containing the patient data
+    """
     uktssa_no = row["UKTR_ID"]
     if pd.isna(uktssa_no) or uktssa_no == 0 or not isinstance(uktssa_no, int):
         message = f"UKTR_ID must be a valid number, check row {index}"
         log.warning(message)
         raise ValueError(message)
 
-    return UKT_Patient(
+    return UKTPatient(
         uktssa_no=int(uktssa_no),
         surname=format_str(row["UKTR_RSURNAME"]),
         forename=format_str(row["UKTR_RFORENAME"]),
@@ -206,14 +312,25 @@ def create_incoming_patient(
 
 def create_incoming_transplant(
     row: pd.Series, transplant_counter: int
-) -> UKT_Transplant:
+) -> UKTTransplant:
+    """
+    Creates an incoming transplant object. Transplant_counter is used to identify
+    the transplant as there can be more than one transplant per patient.
+
+    Args:
+        row (pd.Series): The row data to create the transplant from
+        transplant_counter (int): A counter to identify the transplant
+
+    Returns:
+        UKTTransplant: A UKTTransplant object containing the transplant data
+    """
     hla_mismatch = row[f"uktr_hla_mm{transplant_counter}"]
     if pd.isna(hla_mismatch):
         hla_mismatch = None
     else:
         str(hla_mismatch)
 
-    return UKT_Transplant(
+    return UKTTransplant(
         transplant_id=format_int(row[f"uktr_tx_id{transplant_counter}"]),
         uktssa_no=int(row["UKTR_ID"]),
         transplant_date=format_date(row[f"uktr_txdate{transplant_counter}"]),
@@ -295,31 +412,63 @@ def create_output_dfs(df_columns: dict[str, list[str]]) -> dict[str, pd.DataFram
 
 
 def create_session() -> Session:
+    """
+    Creates a database session
+
+    Returns:
+        Session: A database session
+    """
     driver = "SQL+Server+Native+Client+11.0"
     engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
-    # engine = create_engine("postgresql://postgres:password@localhost:5432/radar")
-    # , autoflush=False
 
     return Session(engine, future=True)
 
 
 def deleted_patient_check(session: Session, file_patients: list[str]) -> list[str]:
+    """
+    Checks patient identifiers against the deleted patient table
+
+    Args:
+        session (Session): a database session
+        file_patients (list[str]): a list of patient identifiers from the file
+
+    Returns:
+        list[str]: a list of patient identifiers that have been deleted
+    """
     results = session.query(UKRR_Deleted_Patient.uktssa_no).all()
     db_patients = {result[0] for result in results}
 
     return list(db_patients.intersection(set(file_patients)))
 
 
-def format_bool(value):
+def format_bool(value: Any) -> Optional[bool]:
+    """
+    Converts a value to a bool
+
+    Args:
+        value (Any): A value to convert
+
+    Returns:
+        Optional[bool]: A bool or None
+    """
     if value in ("0", "0.0", 0, 0.0, "False", "false", False):
         return False
-    elif value in ("1", "1.0", 1, 1.0, "True", "true", True):
+    if value in ("1", "1.0", 1, 1.0, "True", "true", True):
         return True
-    else:
-        return None
+
+    return None
 
 
 def format_date(str_date: Optional[str]) -> Optional[date]:
+    """
+    Converts a string to a date. Returns None if the string is empty
+
+    Args:
+        str_date (Optional[str]): A string to convert
+
+    Returns:
+        Optional[date]: A date or None
+    """
     return (
         parse(str_date).date()
         if isinstance(str_date, str) and len(str_date) > 0
@@ -327,15 +476,38 @@ def format_date(str_date: Optional[str]) -> Optional[date]:
     )
 
 
-def format_int(value):
-    return None if pd.isna(value) else int(value)
+def format_int(value: Any) -> Optional[int]:
+    """
+    Converts a value to an int. Deals with NaNs
+
+    Args:
+        value (Any): A value to convert
+
+    Returns:
+        Optional[int]: An int or None
+    """
+    try:
+        return None if pd.isna(value) else int(value)
+    except (ValueError, TypeError):
+        return None
 
 
 def format_str(value):
+    """
+    Converts a value to a string. Deals with NaNs
+
+    Args:
+        value (_type_): A value to convert
+
+    Returns:
+        _type_: A string or None
+    """
     if isinstance(value, float) and not pd.isna(value):
         return str(int(value))
-    else:
+    try:
         return None if pd.isna(value) else str(value)
+    except (ValueError, TypeError):
+        return None
 
 
 def get_input_file_path(directory: str, log: logging.Logger) -> str:
@@ -370,6 +542,16 @@ def get_input_file_path(directory: str, log: logging.Logger) -> str:
 def make_deleted_patient_row(
     match_type: str, deleted_patient: UKRR_Deleted_Patient
 ) -> dict[str, str]:
+    """
+    Creates a row for the deleted patient sheet
+
+    Args:
+        match_type (str): The type of match
+        deleted_patient (UKRR_Deleted_Patient): A deleted patient object
+
+    Returns:
+        dict[str, str]: A row for the deleted patient sheet
+    """
     # TODO: [NHSBT-8] Add the other columns CHI etc
     return {
         "Match Type": match_type,
@@ -384,8 +566,18 @@ def make_deleted_patient_row(
 
 
 def make_missing_patient_row(
-    match_type: str, missing_patient: UKT_Patient
+    match_type: str, missing_patient: UKTPatient
 ) -> dict[str, str]:
+    """
+    Creates a row for the missing patient sheet
+
+    Args:
+        match_type (str): The type of match
+        missing_patient (UKTPatient): A missing patient object
+
+    Returns:
+        dict[str, str]: A row for the missing patient sheet
+    """
     # TODO: [NHSBT-8] Add the other columns CHI etc
     return {
         "Match Type": match_type,
@@ -399,8 +591,17 @@ def make_missing_patient_row(
 
 
 def make_missing_transplant_match_row(
-    missing_transplant: UKT_Transplant,
-) -> dict[str, str]:
+    missing_transplant: UKTTransplant,
+) -> dict[str, str | int | bool | None]:
+    """
+    Creates a row for the missing transplant sheet
+
+    Args:
+        missing_transplant (UKTTransplant): A missing transplant object
+
+    Returns:
+        dict[str, str | int | bool | None]: A row for the missing transplant sheet
+    """
     return {
         "Match Type": "Missing",
         "UKTSSA_No": missing_transplant.uktssa_no,
@@ -428,9 +629,20 @@ def make_missing_transplant_match_row(
 
 def make_patient_match_row(
     match_type: str,
-    incoming_patient: UKT_Patient,
-    existing_patient: Optional[UKT_Patient],
+    incoming_patient: UKTPatient,
+    existing_patient: Optional[UKTPatient],
 ) -> dict[str, str]:
+    """
+    Creates a row for the patient match sheet
+
+    Args:
+        match_type (str): The type of match
+        incoming_patient (UKTPatient): An incoming patient object
+        existing_patient (Optional[UKTPatient]): An existing patient object
+
+    Returns:
+        dict[str, str]: A row for the patient match sheet
+    """
     # TODO: [NHSBT-8] Add the other columns CHI etc
     patient_row = {
         "Match Type": match_type,
@@ -455,9 +667,20 @@ def make_patient_match_row(
 
 def make_transplant_match_row(
     match_type: str,
-    incoming_transplant: UKT_Transplant,
-    existing_transplant: Optional[UKT_Transplant],
+    incoming_transplant: UKTTransplant,
+    existing_transplant: Optional[UKTTransplant],
 ) -> dict[str, str]:
+    """
+    Creates a row for the transplant match sheet
+
+    Args:
+        match_type (str): The type of match
+        incoming_transplant (UKTTransplant): An incoming transplant object
+        existing_transplant (Optional[UKTTransplant]): An existing transplant object
+
+    Returns:
+        dict[str, str]: A row for the transplant match sheet
+    """
     transplant_row = {
         "Match Type": match_type,
         "UKTSSA_No": incoming_transplant.uktssa_no,
@@ -523,8 +746,19 @@ def make_transplant_match_row(
 
 
 def update_nhsbt_patient(
-    incoming_patient: UKT_Patient, existing_patient: UKT_Patient
-) -> UKT_Patient:
+    incoming_patient: UKTPatient, existing_patient: UKTPatient
+) -> UKTPatient:
+    """
+    Updates an existing patient with incoming patient data. Incoming RR will always be
+    None so preserve existing
+
+    Args:
+        incoming_patient (UKTPatient): An incoming patient object
+        existing_patient (UKTPatient): An existing patient object
+
+    Returns:
+        UKTPatient: An updated patient object
+    """
     # Incoming RR will always be None so preserve existing
     existing_patient.uktssa_no = incoming_patient.uktssa_no
     existing_patient.surname = incoming_patient.surname
@@ -539,8 +773,19 @@ def update_nhsbt_patient(
 
 
 def update_nhsbt_transplant(
-    incoming_transplant: UKT_Transplant, existing_transplant: UKT_Transplant
-) -> UKT_Transplant:
+    incoming_transplant: UKTTransplant, existing_transplant: UKTTransplant
+) -> UKTTransplant:
+    """
+    Updates an existing transplant with incoming transplant data. Incoming RR will
+    always be None so preserve existing
+
+    Args:
+        incoming_transplant (UKTTransplant): An incoming transplant object
+        existing_transplant (UKTTransplant): An existing transplant object
+
+    Returns:
+        UKTTransplant: An updated transplant object
+    """
     # Incoming RR will always be None so preserve existing
     existing_transplant.transplant_id = incoming_transplant.transplant_id
     existing_transplant.uktssa_no = incoming_transplant.uktssa_no
