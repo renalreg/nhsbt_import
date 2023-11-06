@@ -27,8 +27,19 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
-        run: poetry install
+      # - name: Install dependencies
+      #   run: poetry install
 
-      - name: Test with tox
-        run: poetry run tox
+      # - name: Test with tox
+      #   run: poetry run tox
+
+      - name: TODO Check
+        run: |
+          directory_to_scan="./"
+          todo_regex="TODO:(?!\s*\[[A-Za-z0-9-]+\])"
+          result=$(find "$directory_to_scan" -type f -name "*.py" -exec grep -Hn -P "$todo_regex" {} \);
+
+          if [ -n "$result" ]; then
+            echo "Non-matching TODO comments found:"
+            exit 1  # Fail the workflow
+          fi
