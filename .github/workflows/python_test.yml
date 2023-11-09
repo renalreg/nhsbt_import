@@ -45,7 +45,7 @@ jobs:
             result=$(Get-ChildItem -Path $env:DIRECTORY_TO_SCAN -Filter *.py -Recurse | ForEach-Object { Get-Content $_.FullName | Select-String -Pattern $env:TODO_REGEX })
             if ($result) {
               echo "Non-matching TODO comments found:"
-              echo $result
+              echo "$result"
               exit 1
             }
           else
