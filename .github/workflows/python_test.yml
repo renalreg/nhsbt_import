@@ -47,8 +47,8 @@ jobs:
             result=$(find "$DIRECTORY_TO_SCAN" -type f -name "*.py" -exec grep -Hn -P "$TODO_REGEX" {} \;)
           fi
 
-          if [ -n "$result" ]; then
+          if ($result) {
             echo "Non-matching TODO comments found:"
             echo "$result"
             exit 1
-          fi
+          }
