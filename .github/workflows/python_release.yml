@@ -3,7 +3,7 @@ name: Python Release
 on:
   push:
     branches:
-      - action-playground-main
+      - main
 
   workflow_dispatch:
 
