@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nhsbt-import"
-version = "0.1.0"
+version = "1.0.0"
 description = "Import script for NHSBT data"
 authors = ["andyatterton <andrew.atterton@ukkidney.org>"]
 license = "MIT"

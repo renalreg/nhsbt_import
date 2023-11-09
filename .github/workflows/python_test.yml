@@ -3,10 +3,10 @@ name: Python Test
 on:
   push:
     branches:
-      - "action-playground-main"
+      - main
   pull_request:
     branches:
-      - "action-playground-main"
+      - main
 
   workflow_dispatch:
 
