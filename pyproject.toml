@@ -17,6 +17,9 @@ pyodbc = "^4.0.35"
 xlsxwriter = "^3.1.0"
 openpyxl = "^3.1.2"
 psycopg2 = "^2.9.6"
+pandas-stubs = "^2.1.1.230928"
+types-python-dateutil = "^2.8.19.14"
+types-openpyxl = "^3.1.0.26"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.1.0"
@@ -40,8 +43,5 @@ exclude = '(\.git|\.tox|\.vscode|\.pytest_cache|\.mypy_cache)'
 exclude_dirs = ["tests", ".vscode", ".tox", ".ruff_cache", ".pytest_cache", ".mypy_cache"]
 
 [tool.pylint]
-disable = "too-many-locals, too-many-return-statements, too-many-branches"
+disable = "too-many-locals, too-many-return-statements, too-many-branches, fixme"
 max-line-length = 160
-notes-rgx = 'TODO:\s+[^[\n]*$'
-enable="fixme"
-notes="''"

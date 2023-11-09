@@ -342,8 +342,10 @@ def nhsbt_import(
         for i, col in enumerate(df.columns):
             column = get_column_letter(i + 1)
             header_length = len(col)
-            cell_length = max(df[col].astype(str).map(len).max(), header_length)
-            adjusted_width = cell_length + 2
+            cell_length = max(
+                df[col].astype(str).map(len).astype(int).max(), header_length
+            )
+            adjusted_width = int(cell_length) + 2
             ws.column_dimensions[column].width = adjusted_width
 
         for row in ws:
