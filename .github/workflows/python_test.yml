@@ -42,17 +42,17 @@ jobs:
       - name: TODO check
         run: |
           if [ "${{ runner.os }}" == "Windows" ]; then
-            $result = Get-ChildItem -Path $env:DIRECTORY_TO_SCAN -Filter *.py -Recurse | ForEach-Object { Get-Content $_.FullName | Select-String -Pattern $env:TODO_REGEX }
+            result=$(Get-ChildItem -Path $env:DIRECTORY_TO_SCAN -Filter *.py -Recurse | ForEach-Object { Get-Content $_.FullName | Select-String -Pattern $env:TODO_REGEX })
             if ($result) {
-                echo "Non-matching TODO comments found:"
-                echo $result
-                exit 1
+              echo "Non-matching TODO comments found:"
+              echo $result
+              exit 1
             }
           else
             result=$(find "$DIRECTORY_TO_SCAN" -type f -name "*.py" -exec grep -Hn -P "$TODO_REGEX" {} \;)
             if [ -n "$result" ]; then
-            echo "Non-matching TODO comments found:"
-            echo "$result"
-            exit 1
+              echo "Non-matching TODO comments found:"
+              echo "$result"
+              exit 1
             fi
           fi
