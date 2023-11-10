@@ -1,3 +1,8 @@
+"""
+This file contains the column names for the dataframes used in the
+nhsbt_import module.
+"""
+
 # TODO: [NHSBT-9] Could consider putting these in a table somewhere
 df_columns = {
     "new_patients": [
