@@ -42,6 +42,7 @@
     },
     "python.formatting.provider": "black",
     "conventionalCommits.scopes": [
-        "actions"
+        "actions",
+        "script"
     ]
 }
