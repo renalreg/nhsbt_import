@@ -25,6 +25,7 @@ jobs:
         name: Extract Package Name
         run: |
           package_name=$(poetry version | cut -d ' ' -f 1)
+          echo $package_name
 
       - name: Release Please
         uses: google-github-actions/release-please-action@v3
