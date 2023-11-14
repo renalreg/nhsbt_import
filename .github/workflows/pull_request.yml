@@ -28,6 +28,7 @@ jobs:
       - name: Extract branch name
         id: extract_branch_name
         run: |
+          git fetch --depth=1 origin main
           BRANCH_NAME=$(basename ${{ github.event.ref }})
           echo ${BRANCH_NAME}
           echo $(git branch -a)
@@ -36,6 +37,7 @@ jobs:
       - name: Extract first commit message
         id: extract_message
         run: |
+
           FIRST_COMMIT_MESSAGE=$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | tail -1)
           echo ${FIRST_COMMIT_MESSAGE}
           echo "commit_message=${FIRST_COMMIT_MESSAGE}" >> $GITHUB_OUTPUT
