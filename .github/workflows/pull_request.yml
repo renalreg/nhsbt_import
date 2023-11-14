@@ -22,12 +22,14 @@ jobs:
         id: check_pr
         run: |
           PR_EXISTS=$(gh pr list --json "number" --state all -B ${{ github.event.ref }} --limit 1 | jq -r '.[0].number // empty')
+          echo ${PR_EXISTS}
           echo "pr_exists=${PR_EXISTS}" >> $GITHUB_OUTPUT
 
       - name: Extract branch name
         id: extract_branch_name
         run: |
           BRANCH_NAME=$(basename ${{ github.event.ref }})
+          echo ${BRANCH_NAME}
           echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
 
       - name: Extract first commit message
@@ -35,6 +37,7 @@ jobs:
         run: |
           git fetch --depth=1 origin main
           FIRST_COMMIT_MESSAGE=$(git log main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | tail -1)
+          echo ${FIRST_COMMIT_MESSAGE}
           echo "commit_message=${FIRST_COMMIT_MESSAGE}" >> $GITHUB_OUTPUT
 
       - name: Create Pull Request
