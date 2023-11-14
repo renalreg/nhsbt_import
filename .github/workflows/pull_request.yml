@@ -35,6 +35,8 @@ jobs:
       - name: Extract first commit message
         id: extract_message
         run: |
+          git fetch --depth=1 origin main
+
           MAIN_COMMIT=$(git rev-parse main)
           BRANCH_COMMIT=$(git rev-parse ${GITHUB_REF})
 
