@@ -3,39 +3,45 @@ name: Pull Request
 on:
   push:
     branches-ignore:
-      - "main"
+      - main
+
+  workflow_dispatch:
 
 jobs:
   open-pr:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Set up Git
+      - name: Set Up Git
         run: |
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: Check if PR already exists
+      - name: Check For Existing PR
         id: check_pr
         run: |
           PR_EXISTS=$(gh pr list --json "number" --state all -B ${{ github.event.ref }} --limit 1 | jq -r '.[0].number // empty')
+          echo ${PR_EXISTS}
           echo "pr_exists=${PR_EXISTS}" >> $GITHUB_OUTPUT
 
-      - name: Extract branch name
+      - name: Extract Branch Name
         id: extract_branch_name
         run: |
           BRANCH_NAME=$(basename ${{ github.event.ref }})
           echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
 
-      - name: Extract first commit message
+      - name: Extract First Commit Message
         id: extract_message
         run: |
-          git fetch --depth=1 origin main
-          FIRST_COMMIT_MESSAGE=$(git log main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | tail -1)
+          FIRST_COMMIT_MESSAGE=$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | tail -1)
           echo "commit_message=${FIRST_COMMIT_MESSAGE}" >> $GITHUB_OUTPUT
+          PR_BODY=$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%B" | tail -1)
+          echo "pr_body=${PR_BODY}" >> $GITHUB_OUTPUT
 
       - name: Create Pull Request
         if: ${{ steps.check_pr.outputs.pr_exists }} == null
@@ -45,4 +51,5 @@ jobs:
           branch: ${{ github.event.ref }}
           commit-message: ${{ steps.extract_message.outputs.commit_message }}
           title: ${{ steps.extract_message.outputs.commit_message }}
-          body: "Automatically generated pull request."
+          body: ${{ steps.extract_message.outputs.pr_body }}
+          base: main

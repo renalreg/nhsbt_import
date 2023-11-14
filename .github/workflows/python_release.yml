@@ -12,7 +12,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  release-please:
+  release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,11 +21,11 @@ jobs:
       - name: Install Poetry
         uses: Gr1N/setup-poetry@v8
 
-      - id: extract_package_name
-        name: Extract Package Name
+      - name: Extract Package Name
+        id: extract_package_name
         run: |
-          package_name=$(poetry version | cut -d ' ' -f 1)
-          echo $package_name
+          PACKAGE_NAME=$(poetry version | cut -d ' ' -f 1)
+          echo "package_name=${PACKAGE_NAME}" >> $GITHUB_OUTPUT
 
       - name: Release Please
         uses: google-github-actions/release-please-action@v3
