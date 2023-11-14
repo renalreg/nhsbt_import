@@ -52,4 +52,4 @@ jobs:
           title: ${{ steps.extract_message.outputs.commit_message }}
           body: ${{ steps.extract_message.outputs.pr_body }}
           base: main
-          committer: ${{ github.actor }}
+          committer: "${{ github.actor }}@users.noreply.github.com"
