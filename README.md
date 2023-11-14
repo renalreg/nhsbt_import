@@ -45,7 +45,7 @@ There are two modes for running the script. You can run the script without commi
 poetry run import.py -d /path/to/the/directory
 ```
 
-This command will create an audit and error file in the declared directory. The error file holds any errors encountered during the run to aid with de bugging.The audit file will be an excel sheet that tracks new and updated data as well as highlighting missing or deleted patient.
+This command will create an audit and error file in the declared directory. The error file holds any errors encountered during the run to aid with debugging.The audit file will be an excel sheet that tracks new and updated data as well as highlighting missing or deleted patient.
 
 Running this command
 ```sh
