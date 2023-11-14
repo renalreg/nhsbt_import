@@ -57,7 +57,7 @@ jobs:
 
       - name: Render Template
         id: template
-        uses: chuhlomin/render-template@v1.4
+        uses: chuhlomin/render-template@v1
         with:
           template: .github/pull-request-template.md
           vars: |
