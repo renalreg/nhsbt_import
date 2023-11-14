@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
 
       - name: Set up Git
         run: |
@@ -28,7 +30,6 @@ jobs:
       - name: Extract branch name
         id: extract_branch_name
         run: |
-          git fetch origin main
           BRANCH_NAME=$(basename ${{ github.event.ref }})
           echo ${BRANCH_NAME}
           echo $(git branch -a)
@@ -38,7 +39,7 @@ jobs:
         id: extract_message
         run: |
 
-          FIRST_COMMIT_MESSAGE=$(git log origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | tail -1)
+          FIRST_COMMIT_MESSAGE=$(git log main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | tail -1)
           echo ${FIRST_COMMIT_MESSAGE}
           echo "commit_message=${FIRST_COMMIT_MESSAGE}" >> $GITHUB_OUTPUT
 
