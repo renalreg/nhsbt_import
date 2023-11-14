@@ -1,0 +1,41 @@
+name: Pull Request
+
+on:
+  push:
+    branches-ignore:
+      - "main"
+
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Git
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+      - name: Check if PR already exists
+        id: check_pr
+        run: |
+          PR_EXISTS=$(gh pr list --json "number" --state all -B ${{ github.event.ref }} --limit 1 | jq -r '.[0].number // empty')
+          echo "::set-output name=pr_exists::${PR_EXISTS}"
+
+      - name: Extract first commit message
+        id: extract_message
+        run: |
+          FIRST_COMMIT_MESSAGE=$(git log --format=%B --reverse ${{ github.event.before }}..${{ github.sha }} | tail -n 1)
+          echo "::set-output name=commit_message::${FIRST_COMMIT_MESSAGE}"
+
+      - name: Create Pull Request
+        if: steps.check_pr.outputs.pr_exists == null
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.event.ref }}
+          commit-message: ${{ steps.extract_message.outputs.commit_message }}
+          title: ${{ steps.extract_message.outputs.commit_message }}
+          body: "Automatically generated pull request."
