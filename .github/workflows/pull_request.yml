@@ -17,17 +17,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set Up Git
+      - name: Generate Token
+        uses: tibdex/github-app-token@v1
+        id: generate-token
+        with:
+          app_id: ${{ secrets.TOKEN_APP_ID }}
+          private_key: ${{ secrets.TOKEN_APP_KEY }}
+
+      - name: Git Setup
         run: |
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: Check For Existing PR
-        id: check_pr
+      - name: Committer Email
+        id: committer_email
         run: |
-          PR_EXISTS=$(gh pr list --json "number" --state all -B ${{ github.event.ref }} --limit 1 | jq -r '.[0].number // empty')
-          echo ${PR_EXISTS}
-          echo "pr_exists=${PR_EXISTS}" >> $GITHUB_OUTPUT
+          COMMITTER_EMAIL=$(git log -n 1 --pretty=format:%ae)
+          echo "committer_email=${COMMITTER_EMAIL}" >> $GITHUB_OUTPUT
 
       - name: Extract Branch Name
         id: extract_branch_name
@@ -43,13 +49,28 @@ jobs:
           PR_BODY=$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%B" | tail -1)
           echo "pr_body=${PR_BODY}" >> $GITHUB_OUTPUT
 
+      - name: Get Current Date
+        id: get_current_date
+        run: |
+          CURRENT_DATE=$(date +"%Y-%m-%d")
+          echo "current_date=${CURRENT_DATE}" >> $GITHUB_OUTPUT
+
+      - name: Render Template
+        id: template
+        uses: chuhlomin/render-template@v1
+        with:
+          template: .github/pull_request_template.md
+          vars: |
+            pr_date: ${{ steps.get_current_date.outputs.current_date }}
+            pr_feature: "${{ steps.extract_message.outputs.commit_message }}"
+            pr_notes: ${{ steps.extract_message.outputs.pr_body }}
+
       - name: Create Pull Request
-        if: ${{ steps.check_pr.outputs.pr_exists }} == null
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.generate-token.outputs.token }}
           branch: ${{ github.event.ref }}
           commit-message: ${{ steps.extract_message.outputs.commit_message }}
           title: ${{ steps.extract_message.outputs.commit_message }}
-          body: ${{ steps.extract_message.outputs.pr_body }}
+          body: ${{ steps.template.outputs.result }}
           base: main
