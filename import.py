@@ -19,8 +19,7 @@ Raises:
     ValueError: Number of columns in the NHSBT file isn't as expected
 
 Returns:
-    None
-    
+    None  
 """
 
 import logging
