@@ -22,13 +22,6 @@ jobs:
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: Check For Existing PR
-        id: check_pr
-        run: |
-          PR_EXISTS=$(gh pr list --json "number" --state all -B ${{ github.event.ref }} --limit 1 | jq -r '.[0].number // empty')
-          echo ${PR_EXISTS}
-          echo "pr_exists=${PR_EXISTS}" >> $GITHUB_OUTPUT
-
       - name: Extract Branch Name
         id: extract_branch_name
         run: |
@@ -44,7 +37,6 @@ jobs:
           echo "pr_body=${PR_BODY}" >> $GITHUB_OUTPUT
 
       - name: Create Pull Request
-        if: ${{ steps.check_pr.outputs.pr_exists }} == null
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
