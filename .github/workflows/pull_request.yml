@@ -22,13 +22,13 @@ jobs:
         id: check_pr
         run: |
           PR_EXISTS=$(gh pr list --json "number" --state all -B ${{ github.event.ref }} --limit 1 | jq -r '.[0].number // empty')
-          echo "::set-output name=pr_exists::${PR_EXISTS}"
+          echo "{pr_exists}={PR_EXISTS}" >> $GITHUB_ENV
 
       - name: Extract first commit message
         id: extract_message
         run: |
-          FIRST_COMMIT_MESSAGE=$(git log --format=%B --reverse ${{ github.event.before }}..${{ github.sha }} | tail -n 1)
-          echo "::set-output name=commit_message::${FIRST_COMMIT_MESSAGE}"
+          FIRST_COMMIT_MESSAGE=$(git log main..${{ github.event.ref }} --oneline | tail -1)
+          echo "{commit_message}={FIRST_COMMIT_MESSAGE}" >> $GITHUB_ENV
 
       - name: Create Pull Request
         if: steps.check_pr.outputs.pr_exists == null
