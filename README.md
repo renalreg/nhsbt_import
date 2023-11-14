@@ -39,7 +39,7 @@ poetry install
 ```
 
 ## Usage
-There are two modes for running the script. You can run the script without committing any changes to the data base by running the following command, pointing at the directory you created
+There are two modes for running the script. You can run the script without committing any changes to the database by running the following command, pointing at the directory you created
 
 ```sh
 poetry run import.py -d /path/to/the/directory
