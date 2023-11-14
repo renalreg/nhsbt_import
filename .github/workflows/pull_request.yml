@@ -10,7 +10,6 @@ on:
 jobs:
   open-pr:
     runs-on: ubuntu-latest
-    environment: development
 
     steps:
       - name: Checkout
@@ -25,10 +24,16 @@ jobs:
           app_id: ${{ secrets.TOKEN_APP_ID }}
           private_key: ${{ secrets.TOKEN_APP_KEY }}
 
-      - name: Set Up Git
+      - name: Git Setup
         run: |
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+      - name: Committer Email
+        id: committer_email
+        run: |
+          COMMITTER_EMAIL=$(git log -n 1 --pretty=format:%ae)
+          echo "committer_email=${COMMITTER_EMAIL}" >> $GITHUB_OUTPUT
 
       - name: Extract Branch Name
         id: extract_branch_name
@@ -53,4 +58,4 @@ jobs:
           title: ${{ steps.extract_message.outputs.commit_message }}
           body: ${{ steps.extract_message.outputs.pr_body }}
           base: main
-          committer: "${{ github.actor }}@${{ vars.EMAIL_DOMAIN }}"
+          committer: ${{ steps.committer_email.outputs.committer_email }}
