@@ -52,4 +52,4 @@ jobs:
           title: ${{ steps.extract_message.outputs.commit_message }}
           body: ${{ steps.extract_message.outputs.pr_body }}
           base: main
-          committer: "${{ github.actor }}@${{ env.EMAIL_DOMAIN }}"
+          committer: "${{ github.actor }}@${{ vars.EMAIL_DOMAIN }}"
