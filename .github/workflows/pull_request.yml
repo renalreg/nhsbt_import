@@ -33,6 +33,7 @@ jobs:
       - name: Extract first commit message
         id: extract_message
         run: |
+          git fetch --depth=1 origin main
           FIRST_COMMIT_MESSAGE=$(git log main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | tail -1)
           echo "commit_message=${FIRST_COMMIT_MESSAGE}" >> $GITHUB_OUTPUT
 
