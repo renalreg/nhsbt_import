@@ -10,6 +10,7 @@ on:
 jobs:
   open-pr:
     runs-on: ubuntu-latest
+    environment: development
 
     steps:
       - name: Checkout
