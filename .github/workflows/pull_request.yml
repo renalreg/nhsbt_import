@@ -35,12 +35,8 @@ jobs:
       - name: Extract first commit message
         id: extract_message
         run: |
-          git fetch --depth=1 origin main
-
-          MAIN_COMMIT=$(git rev-parse main)
-          BRANCH_COMMIT=$(git rev-parse ${GITHUB_REF})
-
-          FIRST_COMMIT_MESSAGE=$(git log ${MAIN_COMMIT}..${BRANCH_COMMIT} --oneline --pretty=format:"%s" | tail -1)
+          FIRST_COMMIT_MESSAGE=$(git log origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | tail -1)
+          echo ${FIRST_COMMIT_MESSAGE}
           echo "commit_message=${FIRST_COMMIT_MESSAGE}" >> $GITHUB_OUTPUT
 
       - name: Create Pull Request
