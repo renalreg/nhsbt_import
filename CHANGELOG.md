@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/renalreg/nhsbt_import/compare/v0.1.0...v1.0.0) (2023-11-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* Version ([#32](https://github.com/renalreg/nhsbt_import/issues/32))
+
+### Features
+
+* Version ([#32](https://github.com/renalreg/nhsbt_import/issues/32)) ([3a159e7](https://github.com/renalreg/nhsbt_import/commit/3a159e71e1560b4f794b7698496e43fc8d221ab2))
+
 ## 0.1.0 (2023-11-09)
 
 
