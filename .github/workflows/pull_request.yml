@@ -39,7 +39,7 @@ jobs:
         id: extract_message
         run: |
 
-          FIRST_COMMIT_MESSAGE=$(git log main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | tail -1)
+          FIRST_COMMIT_MESSAGE=$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | tail -1)
           echo ${FIRST_COMMIT_MESSAGE}
           echo "commit_message=${FIRST_COMMIT_MESSAGE}" >> $GITHUB_OUTPUT
 
