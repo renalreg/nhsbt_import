@@ -30,6 +30,7 @@ jobs:
         run: |
           BRANCH_NAME=$(basename ${{ github.event.ref }})
           echo ${BRANCH_NAME}
+          echo $(git branch -a)
           echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
 
       - name: Extract first commit message
