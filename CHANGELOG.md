@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/renalreg/nhsbt_import/compare/v1.0.0...v1.0.1) (2023-11-14)
+
+
+### Documentation
+
+* :memo: Document commit flag option ([#47](https://github.com/renalreg/nhsbt_import/issues/47)) ([dc24c77](https://github.com/renalreg/nhsbt_import/commit/dc24c7702677215ad68b07399e8379198a859189))
+
 ## [1.0.0](https://github.com/renalreg/nhsbt_import/compare/v0.1.0...v1.0.0) (2023-11-14)
 
 
