@@ -39,14 +39,19 @@ poetry install
 ```
 
 ## Usage
-Run the following, pointing at the directory you created
+There are two modes for running the script. You can run the script without committing any changes to the database by running the following command, pointing at the directory you created
 
 ```sh
 poetry run import.py -d /path/to/the/directory
 ```
 
-This command will create an audit and error file in the declared directory. The error file holds any errors encountered during the run to aid with debugging.The audit file will be an excel sheet that tracks new and updated data as well as highlighting missing or deleted patient.
+This command will create an audit and error file in the declared directory. The error file holds any errors encountered during the run to aid with de bugging.The audit file will be an excel sheet that tracks new and updated data as well as highlighting missing or deleted patient.
 
+Running this command
+```sh
+poetry run import.py -c -d /path/to/the/directory
+```
+will do the same thing as abov but with the addition of committing the changes to the live database.
 
 
 [issues-shield]: https://img.shields.io/badge/Issues-0-blue?style=for-the-badge
