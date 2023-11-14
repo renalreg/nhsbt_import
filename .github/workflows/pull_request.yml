@@ -49,13 +49,19 @@ jobs:
           PR_BODY=$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%B" | tail -1)
           echo "pr_body=${PR_BODY}" >> $GITHUB_OUTPUT
 
+      - name: Get Current Date
+        id: get_current_date
+        run: |
+          CURRENT_DATE=$(date +"%Y-%m-%d")
+          echo "current_date=${CURRENT_DATE}" >> $GITHUB_OUTPUT
+
       - name: Render Template
         id: template
         uses: chuhlomin/render-template@v1.4
         with:
           template: .github/pull-request-template.md
           vars: |
-            pr_date: $(date +"%Y-%m-%d")
+            pr_date: ${{ steps.get_current_date.outputs.current_date }}
             pr_feature: ${{ steps.extract_message.outputs.commit_message }}
             pr_notes: ${{ steps.extract_message.outputs.pr_body }}
 
