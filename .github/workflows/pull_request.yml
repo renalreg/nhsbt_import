@@ -29,12 +29,6 @@ jobs:
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: Committer Email
-        id: committer_email
-        run: |
-          COMMITTER_EMAIL=$(git log -n 1 --pretty=format:%ae)
-          echo "committer_email=${COMMITTER_EMAIL}" >> $GITHUB_OUTPUT
-
       - name: Extract Branch Name
         id: extract_branch_name
         run: |
@@ -58,4 +52,4 @@ jobs:
           title: ${{ steps.extract_message.outputs.commit_message }}
           body: ${{ steps.extract_message.outputs.pr_body }}
           base: main
-          committer: ${{ steps.committer_email.outputs.committer_email }}
+          committer: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
