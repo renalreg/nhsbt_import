@@ -49,6 +49,16 @@ jobs:
           PR_BODY=$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%B" | tail -1)
           echo "pr_body=${PR_BODY}" >> $GITHUB_OUTPUT
 
+      - name: Render Template
+        id: template
+        uses: chuhlomin/render-template@v1.4
+        with:
+          template: .github/pull-request-template.md
+          vars: |
+            pr_date: $(date +"%Y-%m-%d")
+            pr_feature: ${{ steps.extract_message.outputs.commit_message }}
+            pr_notes: ${{ steps.extract_message.outputs.pr_body }}
+
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
         with:
@@ -56,5 +66,5 @@ jobs:
           branch: ${{ github.event.ref }}
           commit-message: ${{ steps.extract_message.outputs.commit_message }}
           title: ${{ steps.extract_message.outputs.commit_message }}
-          body: ${{ steps.extract_message.outputs.pr_body }}
+          body: ${{ steps.template.outputs.result }}
           base: main
