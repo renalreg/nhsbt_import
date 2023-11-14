@@ -20,8 +20,6 @@ Raises:
 
 Returns:
     None
-
-Test message to create commits
 """
 
 import logging
