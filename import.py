@@ -21,7 +21,6 @@ Raises:
 Returns:
     None
 
-I changed this
 """
 
 import logging
