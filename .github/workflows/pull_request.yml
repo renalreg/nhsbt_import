@@ -25,19 +25,20 @@ jobs:
           echo ${PR_EXISTS}
           echo "pr_exists=${PR_EXISTS}" >> $GITHUB_OUTPUT
 
-      - name: Extract branch name
-        id: extract_branch_name
-        run: |
-          BRANCH_NAME=$(basename ${{ github.event.ref }})
-          echo ${BRANCH_NAME}
-          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+      # - name: Extract branch name
+      #   id: extract_branch_name
+      #   run: |
+      #     BRANCH_NAME=$(basename ${{ github.event.ref }})
+      #     echo ${BRANCH_NAME}
+      #     echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
 
       - name: Extract first commit message
         id: extract_message
         run: |
-          git fetch --depth=1 origin main
-          FIRST_COMMIT_MESSAGE=$(git log main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | tail -1)
-          echo ${FIRST_COMMIT_MESSAGE}
+          MAIN_COMMIT=$(git rev-parse main)
+          BRANCH_COMMIT=$(git rev-parse ${GITHUB_REF})
+
+          FIRST_COMMIT_MESSAGE=$(git log ${MAIN_COMMIT}..${BRANCH_COMMIT} --oneline --pretty=format:"%s" | tail -1)
           echo "commit_message=${FIRST_COMMIT_MESSAGE}" >> $GITHUB_OUTPUT
 
       - name: Create Pull Request
