@@ -60,9 +60,9 @@ jobs:
         uses: chuhlomin/render-template@v1.4
         with:
           template: .github/pull-request-template.md
-          vars: |
+          vars: >
             pr_date: ${{ steps.get_current_date.outputs.current_date }}
-            pr_feature: something cool
+            pr_feature: ${{ steps.extract_branch_name.outputs.branch_name }}
             pr_notes: ${{ steps.extract_message.outputs.pr_body }}
 
       - name: Create Pull Request
