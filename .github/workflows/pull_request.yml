@@ -25,12 +25,12 @@ jobs:
           echo ${PR_EXISTS}
           echo "pr_exists=${PR_EXISTS}" >> $GITHUB_OUTPUT
 
-      # - name: Extract branch name
-      #   id: extract_branch_name
-      #   run: |
-      #     BRANCH_NAME=$(basename ${{ github.event.ref }})
-      #     echo ${BRANCH_NAME}
-      #     echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+      - name: Extract branch name
+        id: extract_branch_name
+        run: |
+          BRANCH_NAME=$(basename ${{ github.event.ref }})
+          echo ${BRANCH_NAME}
+          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
 
       - name: Extract first commit message
         id: extract_message
