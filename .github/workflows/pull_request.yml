@@ -41,35 +41,45 @@ jobs:
           BRANCH_NAME=$(basename ${{ github.event.ref }})
           echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
 
-      # - name: Extract First Commit Message
-      #   id: extract_message
-      #   run: |
-      #     FIRST_COMMIT_MESSAGE=$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | tail -1)
-      #     echo "commit_message=${FIRST_COMMIT_MESSAGE}" >> $GITHUB_OUTPUT
-      #     PR_BODY=$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%B" | tail -1)
-      #     echo "pr_body=${PR_BODY}" >> $GITHUB_OUTPUT
-
-      - name: Extract Commit Messages
-        id: extract_messages
+      - name: PR Title
+        id: pr_title
         run: |
-          COMMIT_MESSAGES="$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | grep -E '^(feat!|feat|fix|docs)')"
-          echo "commit_messages=${COMMIT_MESSAGES}" >> $GITHUB_OUTPUT
-          PR_BODY="$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%B" | grep -E '^(feat!|feat|fix|docs)')"
-          echo "pr_body=${PR_BODY}" >> $GITHUB_OUTPUT
+          COMMIT_MESSAGES=$(git log remotes/origin/main..pr-action --oneline --pretty=format:"%s" | grep -E '^(feat!|feat|fix|docs)')
 
-      - name: Determine Superior Commit
-        id: superior_commit
-        run: |
-          SUPERIOR_COMMIT=$(echo "${{ steps.extract_messages.outputs.commit_messages }}" | sort -r | head -n 1)
-          echo "superior_commit=${SUPERIOR_COMMIT}" >> $GITHUB_OUTPUT
+          SUPERIOR_COMMIT=$(echo "$COMMIT_MESSAGES" | grep -E '^(feat!)' | sort -r | head -n 1)
 
-          COUNT_SUPERIOR=$(echo "${{ steps.extract_messages.outputs.commit_messages }}" | grep -c "${SUPERIOR_COMMIT}")
-          echo "count_superior=${COUNT_SUPERIOR}" >> $GITHUB_OUTPUT
-
-          if [ "$COUNT_SUPERIOR" -gt 1 ]; then
-            echo "Exiting workflow. Two or more instances of a superior commit found."
-            exit 0
+          if [ -z "$SUPERIOR_COMMIT" ]; then
+              SUPERIOR_COMMIT=$(echo "$COMMIT_MESSAGES" | grep -E '^(feat)' | sort -r | head -n 1)
           fi
+
+          if [ -z "$SUPERIOR_COMMIT" ]; then
+              SUPERIOR_COMMIT=$(echo "$COMMIT_MESSAGES" | grep -E '^(fix)' | sort -r | head -n 1)
+          fi
+
+          if [ -z "$SUPERIOR_COMMIT" ]; then
+              SUPERIOR_COMMIT=$(echo "$COMMIT_MESSAGES" | grep -E '^(docs)' | sort -r | head -n 1)
+          fi
+
+          COUNT_SUPERIOR=$(echo "$COMMIT_MESSAGES" | grep -c "$SUPERIOR_COMMIT")
+
+          if [ "${COUNT_SUPERIOR}" -gt 1 ]; then
+              echo "Exiting workflow. Two or more instances of the greatest commit found."
+              exit 0
+          fi
+
+          echo "pr_title=${SUPERIOR_COMMIT}" >> $GITHUB_OUTPUT
+
+      - name: PR Features
+        id: pr_features
+        run: |
+          FEATURE_COMMITS=$(git log remotes/origin/main..pr-action --oneline --pretty=format:"%s" | grep -E '^(feat!|feat|fix|docs)')
+          echo "pr_features=${FEATURE_COMMITS}" >> $GITHUB_OUTPUT
+
+      - name: PR Notes
+        id: pr_notes
+        run: |
+          COMMIT_BODIES=$(git log remotes/origin/main..pr-action --pretty=format:"%s%n%b" | awk '/^(feat!|feat|fix|docs)/ {inBody=1; next} inBody {print $0; next} {inBody=0}')
+          echo "pr_notes=${COMMIT_BODIES}" >> $GITHUB_OUTPUT
 
       - name: Get Current Date
         id: get_current_date
@@ -84,15 +94,15 @@ jobs:
           template: .github/pull_request_template.md
           vars: |
             pr_date: ${{ steps.get_current_date.outputs.current_date }}
-            pr_feature: "${{ steps.extract_messages.outputs.commit_messages }}"
-            pr_notes: ${{ steps.extract_messages.outputs.pr_body }}
+            pr_feature: "${{ steps.pr_features.outputs.pr_features }}"
+            pr_notes: ${{ steps.pr_notes.outputs.pr_notes }}
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ steps.generate-token.outputs.token }}
           branch: ${{ github.event.ref }}
-          commit-message: ${{ steps.superior_commit.outputs.greatest_commit }}
-          title: ${{ steps.superior_commit.outputs.greatest_commit }}
+          commit-message: ${{ steps.pr_title.outputs.pr_title }}
+          title: ${{ steps.pr_title.outputs.pr_title }}
           body: ${{ steps.template.outputs.result }}
           base: main
