@@ -109,12 +109,13 @@ jobs:
             some words
             EOF
             )
+
         with:
           template: .github/pull_request_template.md
           vars: |
             pr_date: ${{ steps.get_current_date.outputs.current_date }}
             pr_feature: "${{ steps.pr_features.outputs.pr_features }}"
-            pr_notes: $pr_temp_notes
+            pr_notes: ${{ env.pr_temp_notes }}
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
