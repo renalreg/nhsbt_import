@@ -20,11 +20,6 @@ Raises:
 
 Returns:
     None
-Made a bug
-
-add a feature
-
-fix bug
 """
 
 import logging
