@@ -103,7 +103,8 @@ jobs:
         id: template
         uses: chuhlomin/render-template@v1
         env:
-          pr_temp_notes: $(cat <<EOF
+          pr_temp_notes: (
+            cat <<EOF
             this is a multiline
             string with
             some words
