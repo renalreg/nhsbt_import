@@ -68,6 +68,7 @@ jobs:
           fi
 
           echo "pr_title=${SUPERIOR_COMMIT}" >> $GITHUB_OUTPUT
+          echo ${SUPERIOR_COMMIT}
 
       - name: PR Features
         id: pr_features
@@ -75,11 +76,15 @@ jobs:
           FEATURE_COMMITS=$(git log remotes/origin/main..pr-action --oneline --pretty=format:"%s" | grep -E '^(feat!|feat|fix|docs)')
           echo "pr_features=${FEATURE_COMMITS}" >> $GITHUB_OUTPUT
 
+          echo ${FEATURE_COMMITS}
+
       - name: PR Notes
         id: pr_notes
         run: |
           COMMIT_BODIES=$(git log remotes/origin/main..pr-action --pretty=format:"%s%n%b" | awk '/^(feat!|feat|fix|docs)/ {inBody=1; next} inBody {print $0; next} {inBody=0}')
           echo "pr_notes=${COMMIT_BODIES}" >> $GITHUB_OUTPUT
+
+          echo ${COMMIT_BODIES}
 
       - name: Get Current Date
         id: get_current_date
