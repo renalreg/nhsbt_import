@@ -52,9 +52,9 @@ jobs:
       - name: Extract Commit Messages
         id: extract_messages
         run: |
-          COMMIT_MESSAGES=$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | grep -E '^(feat!|feat|fix|docs)')
+          COMMIT_MESSAGES="$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | grep -E '^(feat!|feat|fix|docs)')"
           echo "commit_messages=${COMMIT_MESSAGES}" >> $GITHUB_OUTPUT
-          PR_BODY=$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%B" | grep -E '^(feat!|feat|fix|docs)')
+          PR_BODY="$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%B" | grep -E '^(feat!|feat|fix|docs)')"
           echo "pr_body=${PR_BODY}" >> $GITHUB_OUTPUT
 
       - name: Determine Superior Commit
