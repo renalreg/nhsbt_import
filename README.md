@@ -53,7 +53,6 @@ poetry run import.py -c -d /path/to/the/directory
 ```
 will do the same thing as above but with the addition of committing the changes to the live database.
 
-
 [issues-shield]: https://img.shields.io/badge/Issues-0-blue?style=for-the-badge
 [issues-url]: https://renalregistry.atlassian.net/jira/software/projects/NHSBT/boards/19
 
