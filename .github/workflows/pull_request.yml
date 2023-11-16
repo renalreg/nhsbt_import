@@ -85,9 +85,12 @@ jobs:
         id: pr_notes
         run: |
           COMMIT_BODIES=$(git log remotes/origin/main..pr-action --pretty=format:"%s%n%b" | awk '/^(feat!|feat|fix|docs)/ {inBody=1; next} inBody {print $0; next} {inBody=0}')
-          echo pr_notes=${COMMIT_BODIES} >> $GITHUB_OUTPUT
-
-          echo ${COMMIT_BODIES}
+          echo "${COMMIT_BODIES}"
+          {
+            echo 'pr_notes<<EOF'
+            echo "${COMMIT_BODIES}"
+            echo EOF
+          } >> $GITHUB_OUTPUT
 
       - name: Get Current Date
         id: get_current_date
@@ -103,7 +106,7 @@ jobs:
           vars: |
             pr_date: ${{ steps.get_current_date.outputs.current_date }}
             pr_feature: "${{ steps.pr_features.outputs.pr_features }}"
-            pr_notes: ${{ steps.pr_notes.outputs.pr_notes }}
+            pr_notes: "${{ steps.pr_notes.outputs.pr_notes }}"
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
