@@ -74,12 +74,7 @@ jobs:
         id: pr_features
         run: |
           FEATURE_COMMITS=$(git log remotes/origin/main..pr-action --oneline --pretty=format:"%s" | grep -E '^(feat!|feat|fix|docs)')
-          echo ${FEATURE_COMMITS}
-          {
-            echo 'pr_features<<\n'
-            echo ${FEATURE_COMMITS}
-            echo \n
-          } >> "$GITHUB_OUTPUT"
+          echo "pr_features='${FEATURE_COMMITS}'" >> $GITHUB_OUTPUT
 
       - name: PR Notes
         id: pr_notes
