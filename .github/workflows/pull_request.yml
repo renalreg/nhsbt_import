@@ -116,5 +116,5 @@ jobs:
           branch: ${{ github.event.ref }}
           commit-message: ${{ steps.pr_title.outputs.pr_title }}
           title: ${{ steps.pr_title.outputs.pr_title }}
-          body: ${{ steps.template.outputs.result }}
+          body: "${{ steps.template.outputs.result }}"
           base: main
