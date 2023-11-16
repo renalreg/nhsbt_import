@@ -105,7 +105,7 @@ jobs:
           template: .github/pull_request_template.md
           vars: |
             pr_date: ${{ steps.get_current_date.outputs.current_date }}
-            pr_feature: "${{ steps.pr_features.outputs.pr_features }}"
+            pr_feature: ${{ steps.pr_features.outputs.pr_features }}
             pr_notes: "${{ steps.pr_notes.outputs.pr_notes }}"
 
       - name: Create Pull Request
