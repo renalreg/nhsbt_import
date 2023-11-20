@@ -15,9 +15,18 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Files Included Check
-        uses: thebinaryfelix/check-file-existence-action@v1
+        id: file_check
+        uses: andstor/file-existence-action@v2
         with:
           files: "README.md, CHANGELOG.md, pyproject.toml, tox.ini"
+
+      - name: Fail If Files Missing
+        if: steps.file_check.outputs.files_exists == 'false'
+        run: |
+          echo "You are missing one of the follwoing files"
+          echo "README.md, CHANGELOG.md, pyproject.toml, tox.ini"
+          echo "Please add the missing files and try again."
+          exit 1
 
       - name: README Not Empty Check
         run: |
