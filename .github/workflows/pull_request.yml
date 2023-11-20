@@ -102,18 +102,12 @@ jobs:
       - name: Render Template
         id: template
         uses: chuhlomin/render-template@v1
-        env:
-          pr_temp_notes: |
-            this is a multiline
-            string with
-            some words
-
         with:
           template: .github/pull_request_template.md
           vars: |
             pr_date: ${{ steps.get_current_date.outputs.current_date }}
             pr_feature: "${{ steps.pr_features.outputs.pr_features }}"
-            pr_notes: "${{ env.pr_temp_notes }}"
+            pr_notes: "${{ steps.pr_notes.outputs.pr_notes }}"
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
@@ -122,5 +116,5 @@ jobs:
           branch: ${{ github.event.ref }}
           commit-message: ${{ steps.pr_title.outputs.pr_title }}
           title: ${{ steps.pr_title.outputs.pr_title }}
-          body: "${{ steps.template.outputs.result }}"
+          body: ${{ steps.template.outputs.result }}
           base: main
