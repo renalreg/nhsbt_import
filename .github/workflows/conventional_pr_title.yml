@@ -1,0 +1,30 @@
+name: Conventional PR Title
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - edited
+      - synchronize
+
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Check Title
+        id: check_title
+        uses: aslafy-z/conventional-pr-title-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fail If Not Conventional
+        if: steps.check_title.outputs.is_conventional == 'false'
+        run: |
+          echo "PR title does not conform to the conventional committ standard"
+          echo "See - https://www.conventionalcommits.org/en/v1.0.0/"
+          exit 1
