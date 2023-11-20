@@ -1,0 +1,29 @@
+name: Python File Check
+
+on:
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+  file_check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Files Included Check
+        uses: thebinaryfelix/check-file-existence-action@v1
+        with:
+          files: "README.md, CHANGELOG.md, pyproject.toml, tox.ini"
+
+      - name: README Not Empty Check
+        run: |
+          if [ -s "$README.md" ]; then
+            echo "README is not empty, Joel approves."
+          else
+            echo "README is empty, this makes baby Joel cry."
+            exit 1
+          fi
