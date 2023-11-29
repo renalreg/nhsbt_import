@@ -307,13 +307,12 @@ def create_incoming_patient(index: int, row: pd.Series) -> UKTPatient:
         log.error(message)
         raise ValueError(message)
 
-    postcode = format_postcode(row["UKTR_RPOSTCODE"])
+    if postcode := format_postcode(row["UKTR_RPOSTCODE"]):
+        if len(postcode) < 2 or len(postcode) > 8:
+            log.warning("Postcode length error on row %s: %s", index, postcode)
 
-    if len(postcode) < 2 or len(postcode) > 8:
-        log.warning("Postcode length error on row %s: %s", index, postcode)
-
-    if not postcode[:1].isalpha():
-        log.warning("Incorrect postcode format on row %s: %s", index, postcode)
+        if not postcode[:1].isalpha():
+            log.warning("Incorrect postcode format on row %s: %s", index, postcode)
 
     return UKTPatient(
         uktssa_no=uktssa_no,
@@ -474,7 +473,7 @@ def format_bool(value: Any) -> Optional[bool]:
     return True if value in ("1", "1.0", 1, 1.0, "True", "true", True) else None
 
 
-def format_date(str_date: Optional[str]) -> Optional[datetime]:
+def format_date(str_date: Any) -> Optional[datetime]:
     """
     Converts a string to a datetime. Returns None if the string is empty
 
@@ -484,7 +483,7 @@ def format_date(str_date: Optional[str]) -> Optional[datetime]:
     Returns:
         Optional[date]: A date or None
     """
-    if pd.isna(str_date):
+    if not str_date or pd.isna(str_date):
         return None
     try:
         parsed_date = parse(str_date)
