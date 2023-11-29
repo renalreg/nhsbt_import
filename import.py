@@ -23,7 +23,6 @@ Returns:
 
 """
 
-import logging
 import os
 import warnings
 from typing import Optional
@@ -42,6 +41,8 @@ from nhsbt_import import utils
 
 # TODO: [NHSBT-7] Fix FutureWarning. Append being made obsolete
 warnings.filterwarnings("ignore", category=FutureWarning)
+args = utils.args_parse()
+log = utils.create_logs(args.directory)
 
 
 def import_patient(
@@ -49,7 +50,6 @@ def import_patient(
     row: pd.Series,
     output_dfs: dict[str, pd.DataFrame],
     session: Session,
-    log: logging.Logger,
 ) -> Optional[str]:
     """
     Take a patient row and checks to see if the uktssa is present in the database. If not
@@ -66,14 +66,13 @@ def import_patient(
         row (pd.Series): A row relating to a patient from the NHSBT file
         output_dfs (dict[str, pd.DataFrame]): A dict of dataframes for outputs
         session (Session): An sqlalch session
-        log (logging.Logger): A logger
 
     Returns:
         Optional[str]: A match type (New, Update, existing)
     """
     match_type = None
 
-    incoming_patient = utils.create_incoming_patient(index, row, log)
+    incoming_patient = utils.create_incoming_patient(index, row)
     # If len == 1 patient exists, check if update is required
     if (
         len(
@@ -85,7 +84,7 @@ def import_patient(
         )
         == 1
     ):
-        log.info(f"UKT Patient {incoming_patient.uktssa_no} found in database")
+        log.info("UKT Patient %s found in database", incoming_patient.uktssa_no)
         existing_patient = results[0]
 
         if utils.compare_patients(incoming_patient, existing_patient):
@@ -108,7 +107,7 @@ def import_patient(
 
     # If len == 0 add patient to DB
     elif len(results) == 0:
-        log.info(f"Adding patient {incoming_patient.uktssa_no}")
+        log.info("Adding patient %s", incoming_patient.uktssa_no)
         match_type = "New"
 
         match_row = utils.make_patient_match_row(
@@ -123,16 +122,13 @@ def import_patient(
 
     # If len > 1 something is wrong, raise
     else:
-        log.error(f"{incoming_patient.uktssa_no} in the database multiple times")
+        log.error("%s in the database multiple times", incoming_patient.uktssa_no)
 
     return match_type
 
 
 def import_transplants(
-    row: pd.Series,
-    output_dfs: dict[str, pd.DataFrame],
-    session: Session,
-    log: logging.Logger,
+    index: int, row: pd.Series, output_dfs: dict[str, pd.DataFrame], session: Session
 ) -> list[str]:
     """
     Loops over a row looking for dates of registration on the transplant list which is the
@@ -152,7 +148,6 @@ def import_transplants(
         row (pd.Series): A row relating to a patient from the NHSBT file
         output_dfs (dict[str, pd.DataFrame]): A dict of dataframes for outputs
         session (Session): An sqlalch session
-        log (logging.Logger): A logger
 
     Returns:
         list[int]: A list of all the registration IDs for transplants
@@ -168,7 +163,9 @@ def import_transplants(
     while transplant_counter <= max_transplants and not pd.isna(
         row[f"uktr_date_on{transplant_counter}"]
     ):
-        incoming_transplant = utils.create_incoming_transplant(row, transplant_counter)
+        incoming_transplant = utils.create_incoming_transplant(
+            index, row, transplant_counter
+        )
         registration_ids.append(incoming_transplant.registration_id)
         # If len == 1 transplant exists, check if update is required
         if (
@@ -180,7 +177,8 @@ def import_transplants(
             == 1
         ):
             log.info(
-                f"Registration ID {incoming_transplant.registration_id} found in database"
+                "Registration ID %s found in database",
+                incoming_transplant.registration_id,
             )
 
             existing_transplant = results[0]
@@ -202,7 +200,7 @@ def import_transplants(
 
         # If len == 0 add transplant to DB
         elif len(results) == 0:
-            log.info(f"Adding transplant {incoming_transplant.registration_id}")
+            log.info("Adding transplant %s", incoming_transplant.registration_id)
 
             match_row = utils.make_transplant_match_row(
                 "New", incoming_transplant, existing_transplant=None
@@ -217,16 +215,14 @@ def import_transplants(
         # If len > 1 something is wrong, raise
         else:
             log.error(
-                f"{incoming_transplant.registration_id} in the database multiple times"
+                "%s in the database multiple times", incoming_transplant.registration_id
             )
         transplant_counter += 1
 
     return registration_ids
 
 
-def nhsbt_import(
-    input_file_path: str, audit_file_path: str, session: Session, log: logging.Logger
-):
+def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
     """
     Reads in the NHSBT file and builds all the output dataframes. Uses import_patients()
     and import_transplants to import the data to the database and build the out puts. Runs
@@ -241,7 +237,6 @@ def nhsbt_import(
         input_file_path (str): NHSBT file path
         audit_file_path (str): Output file path
         session (Session): An sqlalch session
-        log (logging.Logger): A logger
 
     Raises:
         ValueError: Number of columns in the NHSBT file isn't as expected
@@ -249,9 +244,9 @@ def nhsbt_import(
 
     # TODO: [NHSBT-6] Automate the cleaning of the NHSBT file
 
-    #########################
+    ###################################
     expected_number_of_columns = 125
-    #########################
+    ###################################
 
     nhsbt_df = pd.read_csv(
         input_file_path,
@@ -263,7 +258,11 @@ def nhsbt_import(
             "uktr_hla_mm5": str,
             "uktr_hla_mm6": str,
         },
+        skip_blank_lines=True,
     )
+
+    if not utils.column_is_int(nhsbt_df, "UKTR_ID"):
+        print("this is a problem")
 
     nhsbt_number_of_columns = nhsbt_df.shape[1]
 
@@ -280,19 +279,20 @@ def nhsbt_import(
 
     for index, row in nhsbt_df.iterrows():
         index += 1  # type: ignore [operator]
-        log.info(f"on line {index + 1}")
-        if import_patient(index, row, output_dfs, session, log):
-            registration_ids.extend(import_transplants(row, output_dfs, session, log))
+        log.info("on line %s", index + 1)
+        if import_patient(index, row, output_dfs, session):
+            registration_ids.extend(import_transplants(index, row, output_dfs, session))
 
     file_uktssas = nhsbt_df["UKTR_ID"].tolist()
 
     if missing_uktssa := utils.check_missing_patients(session, file_uktssas):
         # output_dfs["missing_patients"] = create_df("missing_patients", df_columns)
-        missing_patients = (
-            session.query(UKTPatient)
-            .filter(UKTPatient.uktssa_no.in_(missing_uktssa))
-            .all()
-        )
+
+        missing_patients = [
+            session.query(UKTPatient).filter_by(uktssa_no=uktssa).first()
+            for uktssa in missing_uktssa
+        ]
+
         patient_data = [
             utils.make_missing_patient_row("Missing", missing_patient)
             for missing_patient in missing_patients
@@ -305,11 +305,13 @@ def nhsbt_import(
     if missing_transplants_ids := utils.check_missing_transplants(
         session, registration_ids
     ):
-        missing_transplants = (
+        missing_transplants = [
             session.query(UKTTransplant)
-            .filter(UKTTransplant.registration_id.in_(missing_transplants_ids))
-            .all()
-        )
+            .filter_by(registration_id=transplant_id)
+            .first()
+            for transplant_id in missing_transplants_ids
+        ]
+
         transplant_data = [
             utils.make_missing_transplant_match_row(missing_transplant)
             for missing_transplant in missing_transplants
@@ -319,11 +321,11 @@ def nhsbt_import(
         )  # type: ignore [operator]
 
     if deleted_uktssa := utils.deleted_patient_check(session, file_uktssas):
-        deleted_patients = (
-            session.query(UKRR_Deleted_Patient)
-            .filter(UKRR_Deleted_Patient.uktssa_no.in_(deleted_uktssa))
-            .all()
-        )
+        deleted_patients = [
+            session.query(UKRR_Deleted_Patient).filter_by(uktssa_no=uktssa).first()
+            for uktssa in deleted_uktssa
+        ]
+
         deleted_data = [
             utils.make_deleted_patient_row("Deleted", deleted_patient)
             for deleted_patient in deleted_patients
@@ -336,6 +338,8 @@ def nhsbt_import(
     wb.remove(wb["Sheet"])
 
     for sheet_name, df in output_dfs.items():
+        if df.empty:
+            continue
         ws = wb.create_sheet(sheet_name)
         for r in dataframe_to_rows(df, index=False, header=True):
             ws.append(r)
@@ -359,16 +363,14 @@ def nhsbt_import(
 def main():
     """
     Main function for the script. Creates a session, gets the input file path, creates
-    the audit file path, creates the logger and runs the import function. If the commit
+    the audit file path and runs the import function. If the commit
     flag is set the session is committed and closed. If not the session is closed without
     committing.
     """
-    args = utils.args_parse()
-    log = utils.create_logs(args.directory)
-    input_file_path = utils.get_input_file_path(args.directory, log)
+    input_file_path = utils.get_input_file_path(args.directory)
     audit_file_path = os.path.join(args.directory, "audit.xlsx")
     session = utils.create_session()
-    nhsbt_import(input_file_path, audit_file_path, session, log)
+    nhsbt_import(input_file_path, audit_file_path, session)
     if args.commit:
         session.commit()
     session.close()
