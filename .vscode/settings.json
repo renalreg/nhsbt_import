@@ -21,6 +21,7 @@
         "pystr",
         "RCHI",
         "RDOB",
+        "recognised",
         "renalreg",
         "RFORENAME",
         "RNHS",
@@ -33,7 +34,8 @@
         "ukrr",
         "uktr",
         "uktssa",
-        "uktssas"
+        "uktssas",
+        "Unrecognised"
     ],
     "[python]": {
         "editor.formatOnSave": true,

@@ -10,7 +10,7 @@ Functions:
     compare_patients(incoming_patient, existing_patient): Compares incoming and existing patient data
     compare_transplants(incoming_transplant, existing_transplant): Compares incoming and existing transplant data
     create_df(name, columns): Creates a dataframe
-    create_incoming_patient(index, row, log): Creates an incoming patient object
+    create_incoming_patient(index, row): Creates an incoming patient object
     create_incoming_transplant(row, transplant_counter): Creates an incoming transplant object
     create_logs(directory): Creates a logger
     create_output_dfs(df_columns): Creates all the output dataframes
@@ -20,7 +20,7 @@ Functions:
     format_date(str_date): Converts a string to a date. Returns None if the string is empty
     format_int(value): Converts a value to an int
     format_str(value): Converts a value to a string
-    get_input_file_path(directory, log): Checks the supplied directory for the NHSBT
+    get_input_file_path(directory): Checks the supplied directory for the NHSBT
     make_deleted_patient_row(match_type, deleted_patient): Creates a row for the deleted patient sheet
     make_missing_patient_row(match_type, missing_patient): Creates a row for the missing patient sheet
     make_missing_transplant_match_row(missing_transplant): Creates a row for the missing transplant sheet
@@ -34,7 +34,7 @@ import logging
 import logging.config
 import os
 import sys
-from datetime import date
+from datetime import datetime
 from typing import Optional, Any
 
 import pandas as pd
@@ -43,6 +43,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from ukrr_models.nhsbt_models import UKTPatient, UKTTransplant  # type: ignore [import]
 from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore [import]
+
+log = logging.getLogger(__name__)
 
 
 def add_df_row(df: pd.DataFrame, row: dict[str, str]) -> pd.DataFrame:
@@ -172,10 +174,7 @@ def compare_patients(
         return False
     if incoming_patient.ukt_date_death != existing_patient.ukt_date_death:
         return False
-    if incoming_patient.ukt_date_birth != existing_patient.ukt_date_birth:
-        return False
-
-    return True
+    return incoming_patient.ukt_date_birth == existing_patient.ukt_date_birth
 
 
 def compare_transplants(
@@ -252,10 +251,26 @@ def compare_transplants(
         return False
     if incoming_transplant.hla_mismatch != existing_transplant.hla_mismatch:
         return False
-    if incoming_transplant.ukt_suspension != existing_transplant.ukt_suspension:
-        return False
+    return incoming_transplant.ukt_suspension == existing_transplant.ukt_suspension
 
-    return True
+
+def column_is_int(df: pd.DataFrame, column: str):
+    """
+    Check to see if everything in a dataframe column is an int
+
+    Args:
+        df (pd.DataFrame): A dataframe
+        column (str):
+
+    Raises:
+        ValueError: Raised if something other than int detected
+    """
+    df[column] = pd.to_numeric(df[column], errors="coerce")
+    if df[column].isna().any():
+        problem_indices = df[column].index[df[column]]
+        print(problem_indices)
+        log.error("UKTR ID column contains blanks or non-numbers")
+        raise ValueError("UKTR ID column contains blanks or non-numbers")
 
 
 def create_df(name: str, columns: dict[str, list[str]]) -> pd.DataFrame:
@@ -272,16 +287,13 @@ def create_df(name: str, columns: dict[str, list[str]]) -> pd.DataFrame:
     return pd.DataFrame(columns=columns[name])
 
 
-def create_incoming_patient(
-    index: int, row: pd.Series, log: logging.Logger
-) -> UKTPatient:
+def create_incoming_patient(index: int, row: pd.Series) -> UKTPatient:
     """
     Creates an incoming patient object
 
     Args:
         index (int): A row index
         row (pd.Series): The row data to create the patient from
-        log (logging.Logger): Logger
 
     Raises:
         ValueError: Raised if UKTR_ID is not a valid number
@@ -289,18 +301,26 @@ def create_incoming_patient(
     Returns:
         UKTPatient: A UKTPatient object containing the patient data
     """
-    uktssa_no = row["UKTR_ID"]
-    if pd.isna(uktssa_no) or uktssa_no == 0 or not isinstance(uktssa_no, int):
-        message = f"UKTR_ID must be a valid number, check row {index}"
-        log.warning(message)
+    uktssa_no = format_int(row["UKTR_ID"])
+    if uktssa_no == 0 or not isinstance(uktssa_no, int):
+        message = f"UKTR_ID must be a valid number, check row {index + 1}"
+        log.error(message)
         raise ValueError(message)
 
+    postcode = format_postcode(row["UKTR_RPOSTCODE"])
+
+    if len(postcode) < 2 or len(postcode) > 8:
+        log.warning("Postcode length error on row %s: %s", index, postcode)
+
+    if not postcode[:1].isalpha():
+        log.warning("Incorrect postcode format on row %s: %s", index, postcode)
+
     return UKTPatient(
-        uktssa_no=int(uktssa_no),
+        uktssa_no=uktssa_no,
         surname=format_str(row["UKTR_RSURNAME"]),
         forename=format_str(row["UKTR_RFORENAME"]),
-        sex=format_str(row["UKTR_RSEX"]),
-        post_code=format_str(row["UKTR_RPOSTCODE"]),
+        sex=format_sex(row["UKTR_RSEX"], index),
+        post_code=postcode,
         new_nhs_no=format_int(row["UKTR_RNHS_NO"]),
         chi_no=format_int(row["UKTR_RCHI_NO_SCOT"]),
         hsc_no=format_int(row["UKTR_RCHI_NO_NI"]),
@@ -311,7 +331,7 @@ def create_incoming_patient(
 
 
 def create_incoming_transplant(
-    row: pd.Series, transplant_counter: int
+    index: int, row: pd.Series, transplant_counter: int
 ) -> UKTTransplant:
     """
     Creates an incoming transplant object. Transplant_counter is used to identify
@@ -324,22 +344,17 @@ def create_incoming_transplant(
     Returns:
         UKTTransplant: A UKTTransplant object containing the transplant data
     """
-    hla_mismatch = row[f"uktr_hla_mm{transplant_counter}"]
-    if pd.isna(hla_mismatch):
-        hla_mismatch = None
-    else:
-        str(hla_mismatch)
 
     return UKTTransplant(
         transplant_id=format_int(row[f"uktr_tx_id{transplant_counter}"]),
-        uktssa_no=int(row["UKTR_ID"]),
+        uktssa_no=format_int(row["UKTR_ID"]),
         transplant_date=format_date(row[f"uktr_txdate{transplant_counter}"]),
         transplant_type=format_str(row[f"uktr_dgrp{transplant_counter}"]),
         transplant_organ=format_str(row[f"uktr_tx_type{transplant_counter}"]),
         transplant_unit=format_str(row[f"uktr_tx_unit{transplant_counter}"]),
         ukt_fail_date=format_date(row[f"uktr_faildate{transplant_counter}"]),
         rr_no=None,
-        registration_id=f'{int(row["UKTR_ID"])}_{transplant_counter}',
+        registration_id=f'{format_int(row["UKTR_ID"])}_{transplant_counter}',
         registration_date=format_date(row[f"uktr_date_on{transplant_counter}"]),
         registration_date_type=format_str(row[f"uktr_list_status{transplant_counter}"]),
         registration_end_date=format_date(
@@ -351,14 +366,16 @@ def create_incoming_transplant(
         transplant_relationship=format_str(
             row[f"uktr_relationship{transplant_counter}"]
         ),
-        transplant_sex=format_str(row[f"uktr_dsex{transplant_counter}"]),
-        cause_of_failure=format_str(row[f"uktr_cof{transplant_counter}"]),
+        transplant_sex=format_sex(row[f"uktr_dsex{transplant_counter}"], index),
+        cause_of_failure=format_str(format_int(row[f"uktr_cof{transplant_counter}"])),
         cause_of_failure_text=format_str(
             row[f"uktr_other_cof_text{transplant_counter}"]
         ),
         cit_mins=format_str(row[f"uktr_cit_mins{transplant_counter}"]),
-        hla_mismatch=hla_mismatch,
-        ukt_suspension=format_bool(row[f"uktr_suspension_{transplant_counter}"]),
+        hla_mismatch=format_str(row[f"uktr_hla_mm{transplant_counter}"]),
+        ukt_suspension=format_str(
+            format_int(row[f"uktr_suspension_{transplant_counter}"])
+        ),
     )
 
 
@@ -420,6 +437,7 @@ def create_session() -> Session:
     """
     driver = "SQL+Server+Native+Client+11.0"
     engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
+    # engine = create_engine("postgresql://postgres:password@localhost:5432/radar")
 
     return Session(engine, future=True)
 
@@ -453,15 +471,12 @@ def format_bool(value: Any) -> Optional[bool]:
     """
     if value in ("0", "0.0", 0, 0.0, "False", "false", False):
         return False
-    if value in ("1", "1.0", 1, 1.0, "True", "true", True):
-        return True
-
-    return None
+    return True if value in ("1", "1.0", 1, 1.0, "True", "true", True) else None
 
 
-def format_date(str_date: Optional[str]) -> Optional[date]:
+def format_date(str_date: Optional[str]) -> Optional[datetime]:
     """
-    Converts a string to a date. Returns None if the string is empty
+    Converts a string to a datetime. Returns None if the string is empty
 
     Args:
         str_date (Optional[str]): A string to convert
@@ -469,11 +484,15 @@ def format_date(str_date: Optional[str]) -> Optional[date]:
     Returns:
         Optional[date]: A date or None
     """
-    return (
-        parse(str_date).date()
-        if isinstance(str_date, str) and len(str_date) > 0
-        else None
-    )
+    if pd.isna(str_date):
+        return None
+    try:
+        parsed_date = parse(str_date)
+    except (ValueError, TypeError):
+        log.warning("%s is not a valid date", str_date)
+        parsed_date = None
+
+    return parsed_date
 
 
 def format_int(value: Any) -> Optional[int]:
@@ -492,25 +511,81 @@ def format_int(value: Any) -> Optional[int]:
         return None
 
 
-def format_str(value):
+def format_sex(value: Any, index: int) -> Optional[str]:
+    """
+    Attempts to convert a value to a recognised NHS gender code
+
+    Args:
+        value (Any): value to be formatted
+        index (int): row number in case reference is need for logs
+
+    Returns:
+        Optional[int]: Returns None if value can't be converted
+    """
+    message = f"Unrecognised sex at row {index + 1}"
+
+    if not (formatted_value := format_str(value)):
+        log.warning(message)
+        return None
+    if formatted_value in ("0", "1", "2", "9"):
+        return formatted_value
+    if formatted_value.lower() in ("not known", "not_known", "nk"):
+        return "0"
+    if formatted_value.lower() in ("male", "m", "1.0"):
+        return "1"
+    if formatted_value.lower() in ("female", "f", "2.0"):
+        return "2"
+    if formatted_value.lower() in ("not specified", "not_specified", "ns", "9.0"):
+        return "9"
+
+    log.warning(message)
+    return None
+
+
+def format_str(value: Any) -> Optional[str]:
     """
     Converts a value to a string. Deals with NaNs
 
     Args:
-        value (_type_): A value to convert
+        value (Any): A value to convert
 
     Returns:
-        _type_: A string or None
+        str: A string or None
     """
-    if isinstance(value, float) and not pd.isna(value):
-        return str(int(value))
     try:
         return None if pd.isna(value) else str(value)
     except (ValueError, TypeError):
         return None
 
 
-def get_input_file_path(directory: str, log: logging.Logger) -> str:
+def format_postcode(postcode: Optional[str]) -> Optional[str]:
+    """
+    Ensure that postcode is made up of two parts, second part is made
+    up of exactly three characters.
+
+    Args:
+        postcode (Any): a string representing post code
+
+    Returns:
+        Optional[str]: formatted postcode
+    """
+
+    if (postcode := format_str(postcode)) is None:
+        return postcode
+
+    postcode = postcode.upper().strip()
+    postcode = " ".join(postcode.split())
+
+    if len(postcode.split()) > 2:
+        postcode = "".join(postcode.split())
+
+    if len(postcode.split()) == 1 and len(postcode) > 4 and len(postcode) < 8:
+        postcode = f"{postcode[:-3]} {postcode[-3:]}"
+
+    return postcode
+
+
+def get_input_file_path(directory: str) -> str:
     """
     Checks the supplied directory for the NHSBT. Looks for CSV files
     in the directory and checks that there is only one. More than one
@@ -518,7 +593,6 @@ def get_input_file_path(directory: str, log: logging.Logger) -> str:
 
     Args:
         directory (str): Supplied input directory path
-        log (logging.Logger): Logger
 
     Raises:
         ValueError: Raised if there is more than one CSV found
@@ -530,7 +604,9 @@ def get_input_file_path(directory: str, log: logging.Logger) -> str:
 
     if len(csv_list) > 1:
         log.warning(
-            f"Expected to find one import CSV file in {directory}, but found {len(csv_list)} files."
+            "Expected to find one import CSV file in %s, but found %s files.",
+            directory,
+            len(csv_list),
         )
         raise ValueError(
             f"Expected to find one import CSV file in {directory}, but found {len(csv_list)} files."
