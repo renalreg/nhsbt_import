@@ -28,6 +28,12 @@ df_columns = {
         "Date Birth - RR",
         "NHS Number - NHSBT",
         "NHS Number - RR",
+        "CHI Number - NHSBT",
+        "CHI Number - RR",
+        "HSC Number - NHSBT",
+        "HSC Number - RR",
+        "Postcode - NHSBT",
+        "Postcode - RR",
     ],
     "new_transplants": [
         "Match Type",
@@ -104,6 +110,8 @@ df_columns = {
         "Sex - RR",
         "Date Birth - RR",
         "NHS Number - RR",
+        "CHI Number - RR",
+        "HSC Number - RR",
     ],
     "missing_transplants": [
         "Match Type",
@@ -143,5 +151,9 @@ df_columns = {
         "Date Birth - RR",
         "NHS Number - NHSBT",
         "NHS Number - RR",
+        "CHI Number - NHSBT",
+        "CHI Number - RR",
+        "HSC Number - NHSBT",
+        "HSC Number - RR",
     ],
 }

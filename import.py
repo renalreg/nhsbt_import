@@ -261,8 +261,7 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
         skip_blank_lines=True,
     )
 
-    if not utils.column_is_int(nhsbt_df, "UKTR_ID"):
-        print("this is a problem")
+    utils.column_is_int(nhsbt_df, "UKTR_ID")
 
     nhsbt_number_of_columns = nhsbt_df.shape[1]
 
@@ -286,8 +285,6 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
     file_uktssas = nhsbt_df["UKTR_ID"].tolist()
 
     if missing_uktssa := utils.check_missing_patients(session, file_uktssas):
-        # output_dfs["missing_patients"] = create_df("missing_patients", df_columns)
-
         missing_patients = [
             session.query(UKTPatient).filter_by(uktssa_no=uktssa).first()
             for uktssa in missing_uktssa

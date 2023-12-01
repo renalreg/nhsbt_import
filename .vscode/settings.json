@@ -46,6 +46,7 @@
     "python.formatting.provider": "black",
     "conventionalCommits.scopes": [
         "actions",
-        "script"
+        "script",
+        "tests"
     ]
 }

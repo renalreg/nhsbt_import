@@ -568,8 +568,11 @@ def test_make_patient_match_row(incoming_patient, existing_patient):
     assert match_row["Sex - RR"] == existing_patient.sex
     assert match_row["Date Birth - RR"] == existing_patient.ukt_date_birth
     assert match_row["NHS Number - RR"] == existing_patient.new_nhs_no
+    assert match_row["CHI Number - RR"] == existing_patient.chi_no
+    assert match_row["HSC Number - RR"] == existing_patient.hsc_no
+    assert match_row["Postcode - RR"] == existing_patient.post_code
     match_row = _incoming_patient_test("bar", incoming_patient, None)
-    assert len(match_row) == 7
+    assert len(match_row) == 10
 
 
 def _incoming_patient_test(match_type, incoming_patient, existing_patient):
@@ -583,6 +586,9 @@ def _incoming_patient_test(match_type, incoming_patient, existing_patient):
     assert result["Sex - NHSBT"] == incoming_patient.sex
     assert result["Date Birth - NHSBT"] == incoming_patient.ukt_date_birth
     assert result["NHS Number - NHSBT"] == incoming_patient.new_nhs_no
+    assert result["CHI Number - NHSBT"] == incoming_patient.chi_no
+    assert result["HSC Number - NHSBT"] == incoming_patient.hsc_no
+    assert result["Postcode - NHSBT"] == incoming_patient.post_code
     return result
 
 
