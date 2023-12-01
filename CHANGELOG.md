@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/renalreg/nhsbt_import/compare/v1.0.1...v1.1.0) (2023-12-01)
+
+
+### Features
+
+* **script:** :sparkles: CHI, HSC and Postcode in audit ([#69](https://github.com/renalreg/nhsbt_import/issues/69)) ([e3cc5d9](https://github.com/renalreg/nhsbt_import/commit/e3cc5d9434dac5646eddfd4b5ad1a90bfa0afd77))
+* **script:** :sparkles: Post code formatting ([#67](https://github.com/renalreg/nhsbt_import/issues/67)) ([81a38c8](https://github.com/renalreg/nhsbt_import/commit/81a38c83e77189d6a37120adddf59b085cc1a146))
+
 ## [1.0.1](https://github.com/renalreg/nhsbt_import/compare/v1.0.0...v1.0.1) (2023-11-14)
 
 
