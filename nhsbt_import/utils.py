@@ -164,8 +164,8 @@ def compare_patients(
         return False
     if incoming_patient.sex != existing_patient.sex:
         return False
-    if incoming_patient.post_code != existing_patient.post_code:
-        return False
+    # if incoming_patient.post_code != existing_patient.post_code:
+    #     return False
     if incoming_patient.new_nhs_no != existing_patient.new_nhs_no:
         return False
     if incoming_patient.chi_no != existing_patient.chi_no:
@@ -637,6 +637,8 @@ def make_deleted_patient_row(
         "Sex - RR": deleted_patient.sex,
         "Date Birth - RR": deleted_patient.date_birth,
         "NHS Number - RR": deleted_patient.nhs_no,
+        "CHI Number - NHSBT": deleted_patient.chi_no,
+        "HSC Number - NHSBT": deleted_patient.hsc_no,
     }
 
 
@@ -662,6 +664,8 @@ def make_missing_patient_row(
         "Sex - RR": missing_patient.sex,
         "Date Birth - RR": missing_patient.ukt_date_birth,
         "NHS Number - RR": missing_patient.new_nhs_no,
+        "CHI Number - NHSBT": missing_patient.chi_no,
+        "HSC Number - NHSBT": missing_patient.hsc_no,
     }
 
 
@@ -727,6 +731,9 @@ def make_patient_match_row(
         "Sex - NHSBT": incoming_patient.sex,
         "Date Birth - NHSBT": incoming_patient.ukt_date_birth,
         "NHS Number - NHSBT": incoming_patient.new_nhs_no,
+        "CHI Number - NHSBT": incoming_patient.chi_no,
+        "HSC Number - NHSBT": incoming_patient.hsc_no,
+        "Postcode - NHSBT": incoming_patient.post_code,
     }
 
     if existing_patient:
@@ -736,6 +743,9 @@ def make_patient_match_row(
         patient_row["Sex - RR"] = existing_patient.sex
         patient_row["Date Birth - RR"] = existing_patient.ukt_date_birth
         patient_row["NHS Number - RR"] = existing_patient.new_nhs_no
+        patient_row["CHI Number - RR"] = existing_patient.chi_no
+        patient_row["HSC Number - RR"] = existing_patient.hsc_no
+        patient_row["Postcode - RR"] = existing_patient.post_code
 
     return patient_row
 
