@@ -434,9 +434,9 @@ def create_session() -> Session:
     Returns:
         Session: A database session
     """
-    # driver = "SQL+Server+Native+Client+11.0"
-    # engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
-    engine = create_engine("postgresql://postgres:password@localhost:5432/radar")
+    driver = "SQL+Server+Native+Client+11.0"
+    engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
+    # engine = create_engine("postgresql://postgres:password@localhost:5432/radar")
 
     return Session(engine, future=True)
 
