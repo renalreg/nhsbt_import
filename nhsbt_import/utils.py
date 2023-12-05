@@ -434,9 +434,9 @@ def create_session() -> Session:
     Returns:
         Session: A database session
     """
-    driver = "SQL+Server+Native+Client+11.0"
-    engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
-    # engine = create_engine("postgresql://postgres:password@localhost:5432/radar")
+    # driver = "SQL+Server+Native+Client+11.0"
+    # engine = create_engine(f"mssql+pyodbc://rr-sql-live/renalreg?driver={driver}")
+    engine = create_engine("postgresql://postgres:password@localhost:5432/radar")
 
     return Session(engine, future=True)
 
@@ -486,7 +486,7 @@ def format_date(str_date: Any) -> Optional[datetime]:
     if not str_date or pd.isna(str_date):
         return None
     try:
-        parsed_date = parse(str_date)
+        parsed_date = parse(str_date, dayfirst=True)
     except (ValueError, TypeError):
         log.warning("%s is not a valid date", str_date)
         parsed_date = None
