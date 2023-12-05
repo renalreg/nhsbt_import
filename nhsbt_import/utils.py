@@ -486,7 +486,7 @@ def format_date(str_date: Any) -> Optional[datetime]:
     if not str_date or pd.isna(str_date):
         return None
     try:
-        parsed_date = parse(str_date)
+        parsed_date = parse(str_date, dayfirst=True)
     except (ValueError, TypeError):
         log.warning("%s is not a valid date", str_date)
         parsed_date = None
