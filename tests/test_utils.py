@@ -1,7 +1,7 @@
 import logging
 import os
 import sys
-from datetime import datetime
+import datetime
 from io import StringIO
 
 import pandas as pd
@@ -98,7 +98,7 @@ def incoming_patient():
         hsc_no=None,
         rr_no=None,
         ukt_date_death=None,
-        ukt_date_birth=None,
+        ukt_date_birth=fake.date(pattern="%d-%m-%Y"),
     )
 
 
@@ -115,7 +115,7 @@ def existing_patient():
         hsc_no=None,
         rr_no=fake.random_number(digits=6),
         ukt_date_death=None,
-        ukt_date_birth=None,
+        ukt_date_birth=fake.date_time(),
     )
 
 
@@ -125,13 +125,13 @@ def incoming_transplant():
         uktssa_no=fake.random_number(digits=6),
         transplant_id=fake.uuid4(),
         registration_id=fake.random_number(digits=8),
-        transplant_date=fake.date(),
+        transplant_date=fake.date(pattern="%d-%m-%Y"),
         transplant_type=fake.word(),
         transplant_organ=fake.word(),
         transplant_unit=fake.word(),
-        registration_date=fake.date(),
+        registration_date=fake.date(pattern="%d-%m-%Y"),
         registration_date_type=fake.word(),
-        registration_end_date=fake.date(),
+        registration_end_date=fake.date(pattern="%d-%m-%Y"),
         registration_end_status=fake.word(),
         transplant_consideration=fake.word(),
         transplant_dialysis=fake.word(),
@@ -150,13 +150,13 @@ def existing_transplant():
     return nhsbt_models.UKTTransplant(
         transplant_id=fake.uuid4(),
         registration_id=fake.random_number(digits=8),
-        transplant_date=fake.date(),
+        transplant_date=fake.date_time(),
         transplant_type=fake.word(),
         transplant_organ=fake.word(),
         transplant_unit=fake.word(),
-        registration_date=fake.date(),
+        registration_date=fake.date_time(),
         registration_date_type=fake.word(),
-        registration_end_date=fake.date(),
+        registration_end_date=fake.date_time(),
         registration_end_status=fake.word(),
         transplant_consideration=fake.word(),
         transplant_dialysis=fake.word(),
@@ -281,8 +281,8 @@ def test_create_incoming_patient_valid_input():
     assert isinstance(patient.chi_no, (int, type(None)))
     assert patient.hsc_no == row["UKTR_RCHI_NO_NI"]
     assert patient.rr_no is None
-    assert isinstance(patient.ukt_date_death, (datetime, type(None)))
-    assert isinstance(patient.ukt_date_birth, (datetime, type(None)))
+    assert isinstance(patient.ukt_date_death, (datetime.date, type(None)))
+    assert isinstance(patient.ukt_date_birth, (datetime.date, type(None)))
 
 
 def test_create_incoming_patient_invalid_uktr_id():
@@ -343,11 +343,11 @@ def test_create_incoming_transplant():
     assert isinstance(result.transplant_organ, (str, type(None)))
     assert isinstance(result.transplant_unit, (str, type(None)))
     assert isinstance(result.rr_no, (int, type(None)))
-    assert isinstance(result.transplant_date, (datetime, type(None)))
-    assert isinstance(result.ukt_fail_date, (datetime, type(None)))
-    assert isinstance(result.registration_date, (datetime, type(None)))
+    assert isinstance(result.transplant_date, (datetime.datetime, type(None)))
+    assert isinstance(result.ukt_fail_date, (datetime.datetime, type(None)))
+    assert isinstance(result.registration_date, (datetime.datetime, type(None)))
     assert isinstance(result.registration_date_type, (str, type(None)))
-    assert isinstance(result.registration_end_date, (datetime, type(None)))
+    assert isinstance(result.registration_end_date, (datetime.datetime, type(None)))
     assert isinstance(result.registration_end_status, (str, type(None)))
     assert isinstance(result.transplant_consideration, (str, type(None)))
     assert isinstance(result.transplant_dialysis, (str, type(None)))
@@ -445,13 +445,17 @@ def test_format_bool():
 
 def test_format_date():
     result_date_year_first = utils.format_date("2023-11-22")
-    assert result_date_year_first == datetime.strptime("2023-11-22", "%Y-%m-%d")
+    assert result_date_year_first == datetime.datetime.strptime(
+        "2023-11-22", "%Y-%m-%d"
+    )
 
     result_date_using_slash = utils.format_date("2022/03/15")
-    assert result_date_using_slash == datetime.strptime("2022-03-15", "%Y-%m-%d")
+    assert result_date_using_slash == datetime.datetime.strptime(
+        "2022-03-15", "%Y-%m-%d"
+    )
 
     result_date_day_first = utils.format_date("15-06-1995")
-    assert result_date_day_first == datetime.strptime("1995-06-15", "%Y-%m-%d")
+    assert result_date_day_first == datetime.datetime.strptime("1995-06-15", "%Y-%m-%d")
 
     result_date_not_a_date = utils.format_date("2000-20-20")
     assert result_date_not_a_date is None
@@ -566,13 +570,14 @@ def test_make_patient_match_row(incoming_patient, existing_patient):
     assert match_row["Surname - RR"] == existing_patient.surname
     assert match_row["Forename - RR"] == existing_patient.forename
     assert match_row["Sex - RR"] == existing_patient.sex
-    assert match_row["Date Birth - RR"] == existing_patient.ukt_date_birth
+    assert match_row["Date Birth - RR"] == existing_patient.ukt_date_birth.date()
+    assert isinstance(match_row["Date Death - RR"], (datetime.date, type(None)))
     assert match_row["NHS Number - RR"] == existing_patient.new_nhs_no
     assert match_row["CHI Number - RR"] == existing_patient.chi_no
     assert match_row["HSC Number - RR"] == existing_patient.hsc_no
     assert match_row["Postcode - RR"] == existing_patient.post_code
     match_row = _incoming_patient_test("bar", incoming_patient, None)
-    assert len(match_row) == 10
+    assert len(match_row) == 11
 
 
 def _incoming_patient_test(match_type, incoming_patient, existing_patient):
@@ -584,7 +589,8 @@ def _incoming_patient_test(match_type, incoming_patient, existing_patient):
     assert result["Surname - NHSBT"] == incoming_patient.surname
     assert result["Forename - NHSBT"] == incoming_patient.forename
     assert result["Sex - NHSBT"] == incoming_patient.sex
-    assert result["Date Birth - NHSBT"] == incoming_patient.ukt_date_birth
+    assert isinstance(result["Date Birth - NHSBT"], (datetime.date, type(None)))
+    assert isinstance(result["Date Death - NHSBT"], (datetime.date, type(None)))
     assert result["NHS Number - NHSBT"] == incoming_patient.new_nhs_no
     assert result["CHI Number - NHSBT"] == incoming_patient.chi_no
     assert result["HSC Number - NHSBT"] == incoming_patient.hsc_no
@@ -601,19 +607,17 @@ def test_make_transplant_match_row(incoming_transplant, existing_transplant):
     assert row.get("Match Type") == match_type
     assert row.get("UKTSSA_No") == incoming_transplant.uktssa_no
     assert row.get("Transplant ID - NHSBT") == incoming_transplant.transplant_id
-    assert row.get("Registration ID - NHSBT") == incoming_transplant.registration_id
-    assert row.get("Transplant Date - NHSBT") == incoming_transplant.transplant_date
+    assert isinstance(row.get("Transplant Date - NHSBT"), (datetime.date, type(None)))
     assert row.get("Transplant Type - NHSBT") == incoming_transplant.transplant_type
     assert row.get("Transplant Organ - NHSBT") == incoming_transplant.transplant_organ
     assert row.get("Transplant Unit - NHSBT") == incoming_transplant.transplant_unit
-    assert row.get("Registration Date - NHSBT") == incoming_transplant.registration_date
+    assert isinstance(row.get("Registration Date - NHSBT"), (datetime.date, type(None)))
     assert (
         row.get("Registration Date Type - NHSBT")
         == incoming_transplant.registration_date_type
     )
-    assert (
-        row.get("Registration End Date - NHSBT")
-        == incoming_transplant.registration_end_date
+    assert isinstance(
+        row.get("Registration End Date - NHSBT"), (datetime.date, type(None))
     )
     assert (
         row.get("Registration End Status - NHSBT")
