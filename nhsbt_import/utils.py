@@ -34,8 +34,8 @@ import logging
 import logging.config
 import os
 import sys
-from datetime import datetime
-from typing import Optional, Any
+from datetime import datetime, date
+from typing import Optional, Any, Union
 
 import pandas as pd
 from dateutil.parser import parse
@@ -43,6 +43,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from ukrr_models.nhsbt_models import UKTPatient, UKTTransplant  # type: ignore [import]
 from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore [import]
+from openpyxl.styles.fills import PatternFill
+from openpyxl import Workbook
 
 log = logging.getLogger(__name__)
 
@@ -252,6 +254,28 @@ def compare_transplants(
     if incoming_transplant.hla_mismatch != existing_transplant.hla_mismatch:
         return False
     return incoming_transplant.ukt_suspension == existing_transplant.ukt_suspension
+
+
+def colour_differences(wb: Workbook, sheet_name: str):
+    """
+    Highlights the difference between two cells that are next to each other
+    in a sheet. Highlight is light blue.
+
+    Args:
+        wb (Workbook): A excel spreadsheet
+        sheet_name (Worksheet): A sheet from the spreadsheet
+    """
+    sheet = wb[sheet_name]
+    for row_number, row in enumerate(
+        sheet.iter_rows(min_row=2, values_only=True), start=2
+    ):
+        if differences := find_differences(row):
+            for first_column, second_column in differences.items():
+                fill = PatternFill(
+                    start_color="ADD8E6", end_color="ADD8E6", fill_type="solid"
+                )
+                sheet.cell(row=row_number, column=first_column).fill = fill
+                sheet.cell(row=row_number, column=second_column).fill = fill
 
 
 def column_is_int(df: pd.DataFrame, column: str):
@@ -473,7 +497,29 @@ def format_bool(value: Any) -> Optional[bool]:
     return True if value in ("1", "1.0", 1, 1.0, "True", "true", True) else None
 
 
-def format_date(str_date: Any) -> Optional[datetime]:
+def find_differences(row: tuple):
+    """
+    Compares two cells to see if they are different
+
+    Args:
+        row (tuple): A row in a spreadsheet
+
+    Returns:
+        Dict: The differing values
+    """
+    sliced_row = row[3:]
+    last_index = len(sliced_row) - 1
+    differences = {}
+    while last_index > 0:
+        first_index, second_index = last_index, last_index - 1
+        if sliced_row[first_index] != sliced_row[second_index]:
+            differences[first_index + 4] = second_index + 4
+        last_index -= 2
+
+    return differences
+
+
+def format_date(str_date: Any, strip_time=False) -> Optional[Union[datetime, date]]:
     """
     Converts a string to a datetime. Returns None if the string is empty
 
@@ -485,13 +531,17 @@ def format_date(str_date: Any) -> Optional[datetime]:
     """
     if not str_date or pd.isna(str_date):
         return None
+
+    if isinstance(str_date, datetime):
+        return str_date.date() if strip_time else str_date
+
     try:
-        parsed_date = parse(str_date)
+        parsed_date = parse(str_date, dayfirst=True)
     except (ValueError, TypeError):
         log.warning("%s is not a valid date", str_date)
-        parsed_date = None
+        return None
 
-    return parsed_date
+    return parsed_date.date() if strip_time else parsed_date
 
 
 def format_int(value: Any) -> Optional[int]:
@@ -635,7 +685,9 @@ def make_deleted_patient_row(
         "Surname - RR": deleted_patient.surname,
         "Forename - RR": deleted_patient.forename,
         "Sex - RR": deleted_patient.sex,
-        "Date Birth - RR": deleted_patient.date_birth,
+        "Date Birth - RR": str(
+            format_date(deleted_patient.date_birth, strip_time=True)
+        ),
         "NHS Number - RR": deleted_patient.nhs_no,
         "CHI Number - NHSBT": deleted_patient.chi_no,
         "HSC Number - NHSBT": deleted_patient.hsc_no,
@@ -662,7 +714,9 @@ def make_missing_patient_row(
         "Surname - RR": missing_patient.surname,
         "Forename - RR": missing_patient.forename,
         "Sex - RR": missing_patient.sex,
-        "Date Birth - RR": missing_patient.ukt_date_birth,
+        "Date Birth - RR": str(
+            format_date(missing_patient.ukt_date_birth, strip_time=True)
+        ),
         "NHS Number - RR": missing_patient.new_nhs_no,
         "CHI Number - NHSBT": missing_patient.chi_no,
         "HSC Number - NHSBT": missing_patient.hsc_no,
@@ -686,13 +740,19 @@ def make_missing_transplant_match_row(
         "UKTSSA_No": missing_transplant.uktssa_no,
         "Transplant ID - RR": missing_transplant.transplant_id,
         "Registration ID - RR": missing_transplant.registration_id,
-        "Transplant Date - RR": missing_transplant.transplant_date,
+        "Transplant Date - RR": str(
+            format_date(missing_transplant.transplant_date, strip_time=True)
+        ),
         "Transplant Type - RR": missing_transplant.transplant_type,
         "Transplant Organ - RR": missing_transplant.transplant_organ,
         "Transplant Unit - RR": missing_transplant.transplant_unit,
-        "Registration Date - RR": missing_transplant.registration_date,
+        "Registration Date - RR": str(
+            format_date(missing_transplant.registration_date, strip_time=True)
+        ),
         "Registration Date Type - RR": missing_transplant.registration_date_type,
-        "Registration End Date - RR": missing_transplant.registration_end_date,
+        "Registration End Date - RR": str(
+            format_date(missing_transplant.registration_end_date, strip_time=True)
+        ),
         "Registration End Status - RR": missing_transplant.registration_end_status,
         "Transplant Consideration - RR": missing_transplant.transplant_consideration,
         "Transplant Dialysis - RR": missing_transplant.transplant_dialysis,
@@ -729,7 +789,12 @@ def make_patient_match_row(
         "Surname - NHSBT": incoming_patient.surname,
         "Forename - NHSBT": incoming_patient.forename,
         "Sex - NHSBT": incoming_patient.sex,
-        "Date Birth - NHSBT": incoming_patient.ukt_date_birth,
+        "Date Birth - NHSBT": format_date(
+            incoming_patient.ukt_date_birth, strip_time=True
+        ),
+        "Date Death - NHSBT": format_date(
+            incoming_patient.ukt_date_death, strip_time=True
+        ),
         "NHS Number - NHSBT": incoming_patient.new_nhs_no,
         "CHI Number - NHSBT": incoming_patient.chi_no,
         "HSC Number - NHSBT": incoming_patient.hsc_no,
@@ -741,7 +806,12 @@ def make_patient_match_row(
         patient_row["Surname - RR"] = existing_patient.surname
         patient_row["Forename - RR"] = existing_patient.forename
         patient_row["Sex - RR"] = existing_patient.sex
-        patient_row["Date Birth - RR"] = existing_patient.ukt_date_birth
+        patient_row["Date Birth - RR"] = format_date(
+            existing_patient.ukt_date_birth, strip_time=True
+        )
+        patient_row["Date Death - RR"] = format_date(
+            existing_patient.ukt_date_death, strip_time=True
+        )
         patient_row["NHS Number - RR"] = existing_patient.new_nhs_no
         patient_row["CHI Number - RR"] = existing_patient.chi_no
         patient_row["HSC Number - RR"] = existing_patient.hsc_no
@@ -770,14 +840,19 @@ def make_transplant_match_row(
         "Match Type": match_type,
         "UKTSSA_No": incoming_transplant.uktssa_no,
         "Transplant ID - NHSBT": incoming_transplant.transplant_id,
-        "Registration ID - NHSBT": incoming_transplant.registration_id,
-        "Transplant Date - NHSBT": incoming_transplant.transplant_date,
+        "Transplant Date - NHSBT": format_date(
+            incoming_transplant.transplant_date, strip_time=True
+        ),
         "Transplant Type - NHSBT": incoming_transplant.transplant_type,
         "Transplant Organ - NHSBT": incoming_transplant.transplant_organ,
         "Transplant Unit - NHSBT": incoming_transplant.transplant_unit,
-        "Registration Date - NHSBT": incoming_transplant.registration_date,
+        "Registration Date - NHSBT": format_date(
+            incoming_transplant.registration_date, strip_time=True
+        ),
         "Registration Date Type - NHSBT": incoming_transplant.registration_date_type,
-        "Registration End Date - NHSBT": incoming_transplant.registration_end_date,
+        "Registration End Date - NHSBT": format_date(
+            incoming_transplant.registration_end_date, strip_time=True
+        ),
         "Registration End Status - NHSBT": incoming_transplant.registration_end_status,
         "Transplant Consideration - NHSBT": incoming_transplant.transplant_consideration,
         "Transplant Dialysis - NHSBT": incoming_transplant.transplant_dialysis,
@@ -793,17 +868,21 @@ def make_transplant_match_row(
     if existing_transplant:
         transplant_row["Transplant ID - RR"] = existing_transplant.transplant_id
         transplant_row["Registration ID - RR"] = existing_transplant.registration_id
-        transplant_row["Transplant Date - RR"] = existing_transplant.transplant_date
+        transplant_row["Transplant Date - RR"] = (
+            format_date(existing_transplant.transplant_date, strip_time=True),
+        )
         transplant_row["Transplant Type - RR"] = existing_transplant.transplant_type
         transplant_row["Transplant Organ - RR"] = existing_transplant.transplant_organ
         transplant_row["Transplant Unit - RR"] = existing_transplant.transplant_unit
-        transplant_row["Registration Date - RR"] = existing_transplant.registration_date
+        transplant_row["Registration Date - RR"] = (
+            format_date(existing_transplant.registration_date, strip_time=True),
+        )
         transplant_row[
             "Registration Date Type - RR"
         ] = existing_transplant.registration_date_type
-        transplant_row[
-            "Registration End Date - RR"
-        ] = existing_transplant.registration_end_date
+        transplant_row["Registration End Date - RR"] = (
+            format_date(existing_transplant.registration_end_date, strip_time=True),
+        )
         transplant_row[
             "Registration End Status - RR"
         ] = existing_transplant.registration_end_status
