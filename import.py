@@ -160,8 +160,9 @@ def import_transplants(
     transplant_counter = 1
     registration_ids = []
 
-    while transplant_counter <= max_transplants and not pd.isna(
-        row[f"uktr_date_on{transplant_counter}"]
+    while (
+        transplant_counter <= max_transplants
+        and row[f"uktr_date_on{transplant_counter}"] != ""
     ):
         incoming_transplant = utils.create_incoming_transplant(
             index, row, transplant_counter
@@ -250,14 +251,7 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
 
     nhsbt_df = pd.read_csv(
         input_file_path,
-        dtype={
-            "uktr_hla_mm1": str,
-            "uktr_hla_mm2": str,
-            "uktr_hla_mm3": str,
-            "uktr_hla_mm4": str,
-            "uktr_hla_mm5": str,
-            "uktr_hla_mm6": str,
-        },
+        na_filter=False,
         skip_blank_lines=True,
     )
 
@@ -354,7 +348,14 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
             for cell in row:
                 cell.alignment = Alignment(horizontal="center")
 
-    wb.save(audit_file_path)
+    if len(wb.sheetnames) == 0:
+        log.info("Nothing to write to audit file")
+    else:
+        if "updated_patients" in wb.sheetnames:
+            utils.colour_differences(wb, "updated_patients")
+        if "updated_transplants" in wb.sheetnames:
+            utils.colour_differences(wb, "updated_transplants")
+        wb.save(audit_file_path)
 
 
 def main():
