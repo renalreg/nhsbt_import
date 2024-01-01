@@ -449,6 +449,11 @@ def test_format_date():
         "2023-11-22", "%Y-%m-%d"
     )
 
+    result_date_year_first = utils.format_date("1976-08-09")
+    assert result_date_year_first == datetime.datetime.strptime(
+        "1976-08-09", "%Y-%m-%d"
+    )
+
     result_date_using_slash = utils.format_date("2022/03/15")
     assert result_date_using_slash == datetime.datetime.strptime(
         "2022-03-15", "%Y-%m-%d"
@@ -456,6 +461,12 @@ def test_format_date():
 
     result_date_day_first = utils.format_date("15-06-1995")
     assert result_date_day_first == datetime.datetime.strptime("1995-06-15", "%Y-%m-%d")
+
+    result_date_day_first = utils.format_date("04/06/1995")
+    assert result_date_day_first == datetime.datetime.strptime("1995-06-04", "%Y-%m-%d")
+
+    result_date_day_first = utils.format_date("06-04-1995")
+    assert result_date_day_first == datetime.datetime.strptime("1995-04-06", "%Y-%m-%d")
 
     result_date_not_a_date = utils.format_date("2000-20-20")
     assert result_date_not_a_date is None
