@@ -34,7 +34,7 @@ import logging
 import logging.config
 import os
 import sys
-from datetime import datetime, date
+import datetime
 from typing import Optional, Any, Union
 
 import pandas as pd
@@ -519,7 +519,9 @@ def format_bool(value: Any) -> Optional[bool]:
     return True if value in ("1", "1.0", 1, 1.0, "True", "true", True) else None
 
 
-def format_date(str_date: Any, strip_time=False) -> Optional[Union[datetime, date]]:
+def format_date(
+    str_date: Any, strip_time=False
+) -> Optional[Union[datetime.datetime, datetime.date]]:
     """
     Converts a string to a datetime. Returns None if the string is empty
 
@@ -532,8 +534,15 @@ def format_date(str_date: Any, strip_time=False) -> Optional[Union[datetime, dat
     if not str_date or pd.isna(str_date):
         return None
 
-    if isinstance(str_date, datetime):
+    if isinstance(str_date, datetime.datetime):
         return str_date.date() if strip_time else str_date
+
+    if isinstance(str_date, datetime.date):
+        return (
+            str_date
+            if strip_time
+            else datetime.datetime.combine(str_date, datetime.time.min)
+        )
 
     if str_date[:4].isdigit():
         try:

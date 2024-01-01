@@ -43,5 +43,5 @@ exclude = '(\.git|\.tox|\.vscode|\.pytest_cache|\.mypy_cache)'
 exclude_dirs = ["tests", ".vscode", ".tox", ".ruff_cache", ".pytest_cache", ".mypy_cache"]
 
 [tool.pylint]
-disable = "too-many-locals, too-many-return-statements, too-many-branches, fixme"
+disable = "too-many-locals, too-many-return-statements, too-many-branches, fixme, too-many-lines"
 max-line-length = 160
