@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/renalreg/nhsbt_import/compare/v1.2.0...v1.2.1) (2024-01-01)
+
+
+### Bug Fixes
+
+* **script:** :bug: Date formatting issue ([#75](https://github.com/renalreg/nhsbt_import/issues/75)) ([9dba80c](https://github.com/renalreg/nhsbt_import/commit/9dba80c19f6d1102f05b4ceba273d6245a218dad))
+
 ## [1.2.0](https://github.com/renalreg/nhsbt_import/compare/v1.1.1...v1.2.0) (2023-12-21)
 
 
