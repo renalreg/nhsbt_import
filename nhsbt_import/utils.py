@@ -591,20 +591,36 @@ def format_sex(value: Any, index: int) -> Optional[str]:
     return None
 
 
-def format_str(value: Any) -> Optional[str]:
+def format_date(str_date: Any, strip_time=False) -> Optional[Union[datetime, date]]:
     """
-    Converts a value to a string. Deals with NaNs
+    Converts a string to a datetime. Returns None if the string is empty
 
     Args:
-        value (Any): A value to convert
+        str_date (Optional[str]): A string to convert
 
     Returns:
-        str: A string or None
+        Optional[date]: A date or None
     """
-    try:
-        return None if pd.isna(value) else str(value)
-    except (ValueError, TypeError):
+    if not str_date or pd.isna(str_date):
         return None
+
+    if isinstance(str_date, datetime):
+        return str_date.date() if strip_time else str_date
+
+    if str_date[:4].isdigit():
+        try:
+            parsed_date = parse(str_date, yearfirst=True)
+        except (ValueError, TypeError):
+            log.warning("%s is not a valid date", str_date)
+            return None
+    else:
+        try:
+            parsed_date = parse(str_date, dayfirst=True)
+        except (ValueError, TypeError):
+            log.warning("%s is not a valid date", str_date)
+            return None
+
+    return parsed_date.date() if strip_time else parsed_date
 
 
 def format_postcode(postcode: Optional[str]) -> Optional[str]:
