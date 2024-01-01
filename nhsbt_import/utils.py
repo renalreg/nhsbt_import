@@ -482,21 +482,6 @@ def deleted_patient_check(session: Session, file_patients: list[str]) -> list[st
     return list(db_patients.intersection(set(file_patients)))
 
 
-def format_bool(value: Any) -> Optional[bool]:
-    """
-    Converts a value to a bool
-
-    Args:
-        value (Any): A value to convert
-
-    Returns:
-        Optional[bool]: A bool or None
-    """
-    if value in ("0", "0.0", 0, 0.0, "False", "false", False):
-        return False
-    return True if value in ("1", "1.0", 1, 1.0, "True", "true", True) else None
-
-
 def find_differences(row: tuple):
     """
     Compares two cells to see if they are different
@@ -519,6 +504,21 @@ def find_differences(row: tuple):
     return differences
 
 
+def format_bool(value: Any) -> Optional[bool]:
+    """
+    Converts a value to a bool
+
+    Args:
+        value (Any): A value to convert
+
+    Returns:
+        Optional[bool]: A bool or None
+    """
+    if value in ("0", "0.0", 0, 0.0, "False", "false", False):
+        return False
+    return True if value in ("1", "1.0", 1, 1.0, "True", "true", True) else None
+
+
 def format_date(str_date: Any, strip_time=False) -> Optional[Union[datetime, date]]:
     """
     Converts a string to a datetime. Returns None if the string is empty
@@ -535,11 +535,18 @@ def format_date(str_date: Any, strip_time=False) -> Optional[Union[datetime, dat
     if isinstance(str_date, datetime):
         return str_date.date() if strip_time else str_date
 
-    try:
-        parsed_date = parse(str_date, dayfirst=True)
-    except (ValueError, TypeError):
-        log.warning("%s is not a valid date", str_date)
-        return None
+    if str_date[:4].isdigit():
+        try:
+            parsed_date = parse(str_date, yearfirst=True)
+        except (ValueError, TypeError):
+            log.warning("%s is not a valid date", str_date)
+            return None
+    else:
+        try:
+            parsed_date = parse(str_date, dayfirst=True)
+        except (ValueError, TypeError):
+            log.warning("%s is not a valid date", str_date)
+            return None
 
     return parsed_date.date() if strip_time else parsed_date
 
@@ -591,36 +598,20 @@ def format_sex(value: Any, index: int) -> Optional[str]:
     return None
 
 
-def format_date(str_date: Any, strip_time=False) -> Optional[Union[datetime, date]]:
+def format_str(value: Any) -> Optional[str]:
     """
-    Converts a string to a datetime. Returns None if the string is empty
+    Converts a value to a string. Deals with NaNs
 
     Args:
-        str_date (Optional[str]): A string to convert
+        value (Any): A value to convert
 
     Returns:
-        Optional[date]: A date or None
+        str: A string or None
     """
-    if not str_date or pd.isna(str_date):
+    try:
+        return None if pd.isna(value) else str(value)
+    except (ValueError, TypeError):
         return None
-
-    if isinstance(str_date, datetime):
-        return str_date.date() if strip_time else str_date
-
-    if str_date[:4].isdigit():
-        try:
-            parsed_date = parse(str_date, yearfirst=True)
-        except (ValueError, TypeError):
-            log.warning("%s is not a valid date", str_date)
-            return None
-    else:
-        try:
-            parsed_date = parse(str_date, dayfirst=True)
-        except (ValueError, TypeError):
-            log.warning("%s is not a valid date", str_date)
-            return None
-
-    return parsed_date.date() if strip_time else parsed_date
 
 
 def format_postcode(postcode: Optional[str]) -> Optional[str]:
