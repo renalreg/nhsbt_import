@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2](https://github.com/renalreg/nhsbt_import/compare/v1.2.1...v1.2.2) (2024-01-01)
+
+
+### Bug Fixes
+
+* **script:** :bug: handle datetime.date objects ([#77](https://github.com/renalreg/nhsbt_import/issues/77)) ([544b487](https://github.com/renalreg/nhsbt_import/commit/544b4875a0bdf1a9eb91c26455ad071099b83099))
+
 ## [1.2.1](https://github.com/renalreg/nhsbt_import/compare/v1.2.0...v1.2.1) (2024-01-01)
 
 
