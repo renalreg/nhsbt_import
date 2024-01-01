@@ -480,6 +480,20 @@ def test_format_date():
     result_invalid_string = utils.format_date("invalid_date")
     assert result_invalid_string is None
 
+    result_datetime_object = utils.format_date(datetime.datetime(1995, 5, 7, 0, 0, 0))
+    assert result_datetime_object == datetime.datetime(1995, 5, 7, 0, 0, 0)
+
+    result_datetime_in_date_out = utils.format_date(
+        datetime.datetime(1995, 5, 7, 0, 0, 0), True
+    )
+    assert result_datetime_in_date_out == datetime.date(1995, 5, 7)
+
+    result_date_object = utils.format_date(datetime.date(1995, 5, 7))
+    assert result_date_object == datetime.datetime(1995, 5, 7, 0, 0, 0)
+
+    result_date_in_date_out = utils.format_date(datetime.date(1995, 5, 7), True)
+    assert result_date_in_date_out == datetime.date(1995, 5, 7)
+
 
 def test_format_int():
     valid_values = [42, "42", 3.14, "1000", "0", "123"]
