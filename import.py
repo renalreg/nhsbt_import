@@ -38,6 +38,7 @@ from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore [import]
 
 from nhsbt_import.df_columns import df_columns
 from nhsbt_import import utils
+from nhsbt_import.utils import nhsbt_clean
 
 # TODO: [NHSBT-7] Fix FutureWarning. Append being made obsolete
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -46,10 +47,10 @@ log = utils.create_logs(args.directory)
 
 
 def import_patient(
-    index: int,
-    row: pd.Series,
-    output_dfs: dict[str, pd.DataFrame],
-    session: Session,
+        index: int,
+        row: pd.Series,
+        output_dfs: dict[str, pd.DataFrame],
+        session: Session,
 ) -> Optional[str]:
     """
     Take a patient row and checks to see if the uktssa is present in the database. If not
@@ -75,14 +76,14 @@ def import_patient(
     incoming_patient = utils.create_incoming_patient(index, row)
     # If len == 1 patient exists, check if update is required
     if (
-        len(
-            results := (
-                session.query(UKTPatient)
-                .filter_by(uktssa_no=incoming_patient.uktssa_no)
-                .all()
+            len(
+                results := (
+                        session.query(UKTPatient)
+                                .filter_by(uktssa_no=incoming_patient.uktssa_no)
+                                .all()
+                )
             )
-        )
-        == 1
+            == 1
     ):
         log.info("UKT Patient %s found in database", incoming_patient.uktssa_no)
         existing_patient = results[0]
@@ -128,7 +129,7 @@ def import_patient(
 
 
 def import_transplants(
-    index: int, row: pd.Series, output_dfs: dict[str, pd.DataFrame], session: Session
+        index: int, row: pd.Series, output_dfs: dict[str, pd.DataFrame], session: Session
 ) -> list[str]:
     """
     Loops over a row looking for dates of registration on the transplant list which is the
@@ -161,8 +162,8 @@ def import_transplants(
     registration_ids = []
 
     while (
-        transplant_counter <= max_transplants
-        and row[f"uktr_date_on{transplant_counter}"] != ""
+            transplant_counter <= max_transplants
+            and row[f"uktr_date_on{transplant_counter}"] != ""
     ):
         incoming_transplant = utils.create_incoming_transplant(
             index, row, transplant_counter
@@ -170,12 +171,12 @@ def import_transplants(
         registration_ids.append(incoming_transplant.registration_id)
         # If len == 1 transplant exists, check if update is required
         if (
-            len(
-                results := session.query(UKTTransplant)
-                .filter_by(registration_id=incoming_transplant.registration_id)
-                .all()
-            )
-            == 1
+                len(
+                    results := session.query(UKTTransplant)
+                            .filter_by(registration_id=incoming_transplant.registration_id)
+                            .all()
+                )
+                == 1
         ):
             log.info(
                 "Registration ID %s found in database",
@@ -223,6 +224,9 @@ def import_transplants(
     return registration_ids
 
 
+
+
+
 def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
     """
     Reads in the NHSBT file and builds all the output dataframes. Uses import_patients()
@@ -249,11 +253,11 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
     expected_number_of_columns = 125
     ###################################
 
-    nhsbt_df = pd.read_csv(
+    nhsbt_df = nhsbt_clean(pd.read_csv(
         input_file_path,
         na_filter=False,
         skip_blank_lines=True,
-    )
+    ))
 
     utils.column_is_int(nhsbt_df, "UKTR_ID")
 
@@ -294,7 +298,7 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
         )  # type: ignore [operator]
 
     if missing_transplants_ids := utils.check_missing_transplants(
-        session, registration_ids
+            session, registration_ids
     ):
         missing_transplants = [
             session.query(UKTTransplant)

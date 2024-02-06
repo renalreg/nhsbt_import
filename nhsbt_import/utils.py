@@ -28,11 +28,13 @@ Functions:
     make_transplant_match_row(match_type, incoming_transplant, existing_transplant): Creates a row for the transplant match sheet
     update_nhsbt_patient(incoming_patient, existing_patient): Updates an existing patient
     update_nhsbt_transplant(incoming_transplant, existing_transplant): Updates an existing transplant
+    nhsbt_clean(unclean_dataframe): Cleans up the dataframe
 """
 import argparse
 import logging
 import logging.config
 import os
+import re
 import sys
 import datetime
 from typing import Optional, Any, Union
@@ -146,7 +148,7 @@ def check_missing_transplants(session: Session, file_data: list[str]) -> list[st
 
 
 def compare_patients(
-    incoming_patient: UKTPatient, existing_patient: UKTPatient
+        incoming_patient: UKTPatient, existing_patient: UKTPatient
 ) -> bool:
     """
     Compares incoming and existing patient data. Ignore rr_no as it will never match
@@ -180,7 +182,7 @@ def compare_patients(
 
 
 def compare_transplants(
-    incoming_transplant: UKTPatient, existing_transplant: UKTPatient
+        incoming_transplant: UKTPatient, existing_transplant: UKTPatient
 ) -> bool:
     """
     Compares incoming and existing transplant data.
@@ -211,33 +213,33 @@ def compare_transplants(
     if incoming_transplant.registration_date != existing_transplant.registration_date:
         return False
     if (
-        incoming_transplant.registration_date_type
-        != existing_transplant.registration_date_type
+            incoming_transplant.registration_date_type
+            != existing_transplant.registration_date_type
     ):
         return False
     if (
-        incoming_transplant.registration_end_date
-        != existing_transplant.registration_end_date
+            incoming_transplant.registration_end_date
+            != existing_transplant.registration_end_date
     ):
         return False
     if (
-        incoming_transplant.registration_end_status
-        != existing_transplant.registration_end_status
+            incoming_transplant.registration_end_status
+            != existing_transplant.registration_end_status
     ):
         return False
     if (
-        incoming_transplant.transplant_consideration
-        != existing_transplant.transplant_consideration
+            incoming_transplant.transplant_consideration
+            != existing_transplant.transplant_consideration
     ):
         return False
     if (
-        incoming_transplant.transplant_dialysis
-        != existing_transplant.transplant_dialysis
+            incoming_transplant.transplant_dialysis
+            != existing_transplant.transplant_dialysis
     ):
         return False
     if (
-        incoming_transplant.transplant_relationship
-        != existing_transplant.transplant_relationship
+            incoming_transplant.transplant_relationship
+            != existing_transplant.transplant_relationship
     ):
         return False
     if incoming_transplant.transplant_sex != existing_transplant.transplant_sex:
@@ -245,8 +247,8 @@ def compare_transplants(
     if incoming_transplant.cause_of_failure != existing_transplant.cause_of_failure:
         return False
     if (
-        incoming_transplant.cause_of_failure_text
-        != existing_transplant.cause_of_failure_text
+            incoming_transplant.cause_of_failure_text
+            != existing_transplant.cause_of_failure_text
     ):
         return False
     if incoming_transplant.cit_mins != existing_transplant.cit_mins:
@@ -267,7 +269,7 @@ def colour_differences(wb: Workbook, sheet_name: str):
     """
     sheet = wb[sheet_name]
     for row_number, row in enumerate(
-        sheet.iter_rows(min_row=2, values_only=True), start=2
+            sheet.iter_rows(min_row=2, values_only=True), start=2
     ):
         if differences := find_differences(row):
             for first_column, second_column in differences.items():
@@ -354,7 +356,7 @@ def create_incoming_patient(index: int, row: pd.Series) -> UKTPatient:
 
 
 def create_incoming_transplant(
-    index: int, row: pd.Series, transplant_counter: int
+        index: int, row: pd.Series, transplant_counter: int
 ) -> UKTTransplant:
     """
     Creates an incoming transplant object. Transplant_counter is used to identify
@@ -520,7 +522,7 @@ def format_bool(value: Any) -> Optional[bool]:
 
 
 def format_date(
-    str_date: Any, strip_time=False
+        str_date: Any, strip_time=False
 ) -> Optional[Union[datetime.datetime, datetime.date]]:
     """
     Converts a string to a datetime. Returns None if the string is empty
@@ -681,7 +683,7 @@ def get_input_file_path(directory: str) -> str:
 
 
 def make_deleted_patient_row(
-    match_type: str, deleted_patient: UKRR_Deleted_Patient
+        match_type: str, deleted_patient: UKRR_Deleted_Patient
 ) -> dict[str, str]:
     """
     Creates a row for the deleted patient sheet
@@ -711,7 +713,7 @@ def make_deleted_patient_row(
 
 
 def make_missing_patient_row(
-    match_type: str, missing_patient: UKTPatient
+        match_type: str, missing_patient: UKTPatient
 ) -> dict[str, str]:
     """
     Creates a row for the missing patient sheet
@@ -740,7 +742,7 @@ def make_missing_patient_row(
 
 
 def make_missing_transplant_match_row(
-    missing_transplant: UKTTransplant,
+        missing_transplant: UKTTransplant,
 ) -> dict[str, str | int | bool | None]:
     """
     Creates a row for the missing transplant sheet
@@ -783,9 +785,9 @@ def make_missing_transplant_match_row(
 
 
 def make_patient_match_row(
-    match_type: str,
-    incoming_patient: UKTPatient,
-    existing_patient: Optional[UKTPatient],
+        match_type: str,
+        incoming_patient: UKTPatient,
+        existing_patient: Optional[UKTPatient],
 ) -> dict[str, str]:
     """
     Creates a row for the patient match sheet
@@ -837,9 +839,9 @@ def make_patient_match_row(
 
 
 def make_transplant_match_row(
-    match_type: str,
-    incoming_transplant: UKTTransplant,
-    existing_transplant: Optional[UKTTransplant],
+        match_type: str,
+        incoming_transplant: UKTTransplant,
+        existing_transplant: Optional[UKTTransplant],
 ) -> dict[str, str]:
     """
     Creates a row for the transplant match sheet
@@ -926,7 +928,7 @@ def make_transplant_match_row(
 
 
 def update_nhsbt_patient(
-    incoming_patient: UKTPatient, existing_patient: UKTPatient
+        incoming_patient: UKTPatient, existing_patient: UKTPatient
 ) -> UKTPatient:
     """
     Updates an existing patient with incoming patient data. Incoming RR will always be
@@ -953,7 +955,7 @@ def update_nhsbt_patient(
 
 
 def update_nhsbt_transplant(
-    incoming_transplant: UKTTransplant, existing_transplant: UKTTransplant
+        incoming_transplant: UKTTransplant, existing_transplant: UKTTransplant
 ) -> UKTTransplant:
     """
     Updates an existing transplant with incoming transplant data. Incoming RR will
@@ -1000,3 +1002,19 @@ def update_nhsbt_transplant(
     existing_transplant.cit_mins = incoming_transplant.cit_mins
     existing_transplant.hla_mismatch = incoming_transplant.hla_mismatch
     existing_transplant.ukt_suspension = incoming_transplant.ukt_suspension
+
+
+def nhsbt_clean(unclean_df: pd.DataFrame):
+    """
+    Clean the NHSBT file
+    Checks that there are no NULL bytes and replace with blanks
+    Filter out Unicode characters like apostrophes in "St George's", replace with blanks
+    Args:
+
+    Returns:
+
+    """
+    null_byte_regex = r'\x00'
+    unicode_regex = r'\W'
+    clean_df = unclean_df.replace(to_replace=[null_byte_regex, unicode_regex], value="", regex=True)
+    return clean_df
