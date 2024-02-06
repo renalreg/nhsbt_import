@@ -46,10 +46,10 @@ log = utils.create_logs(args.directory)
 
 
 def import_patient(
-    index: int,
-    row: pd.Series,
-    output_dfs: dict[str, pd.DataFrame],
-    session: Session,
+        index: int,
+        row: pd.Series,
+        output_dfs: dict[str, pd.DataFrame],
+        session: Session,
 ) -> Optional[str]:
     """
     Take a patient row and checks to see if the uktssa is present in the database. If not
@@ -75,14 +75,14 @@ def import_patient(
     incoming_patient = utils.create_incoming_patient(index, row)
     # If len == 1 patient exists, check if update is required
     if (
-        len(
-            results := (
-                session.query(UKTPatient)
-                .filter_by(uktssa_no=incoming_patient.uktssa_no)
-                .all()
+            len(
+                results := (
+                        session.query(UKTPatient)
+                                .filter_by(uktssa_no=incoming_patient.uktssa_no)
+                                .all()
+                )
             )
-        )
-        == 1
+            == 1
     ):
         log.info("UKT Patient %s found in database", incoming_patient.uktssa_no)
         existing_patient = results[0]
@@ -128,7 +128,7 @@ def import_patient(
 
 
 def import_transplants(
-    index: int, row: pd.Series, output_dfs: dict[str, pd.DataFrame], session: Session
+        index: int, row: pd.Series, output_dfs: dict[str, pd.DataFrame], session: Session
 ) -> list[str]:
     """
     Loops over a row looking for dates of registration on the transplant list which is the
@@ -161,8 +161,8 @@ def import_transplants(
     registration_ids = []
 
     while (
-        transplant_counter <= max_transplants
-        and row[f"uktr_date_on{transplant_counter}"] != ""
+            transplant_counter <= max_transplants
+            and row[f"uktr_date_on{transplant_counter}"] != ""
     ):
         incoming_transplant = utils.create_incoming_transplant(
             index, row, transplant_counter
@@ -170,12 +170,12 @@ def import_transplants(
         registration_ids.append(incoming_transplant.registration_id)
         # If len == 1 transplant exists, check if update is required
         if (
-            len(
-                results := session.query(UKTTransplant)
-                .filter_by(registration_id=incoming_transplant.registration_id)
-                .all()
-            )
-            == 1
+                len(
+                    results := session.query(UKTTransplant)
+                            .filter_by(registration_id=incoming_transplant.registration_id)
+                            .all()
+                )
+                == 1
         ):
             log.info(
                 "Registration ID %s found in database",
@@ -289,12 +289,10 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
             for missing_patient in missing_patients
         ]
 
-        output_dfs["missing_patients"] = output_dfs["missing_patients"].append(
-            patient_data, ignore_index=True
-        )  # type: ignore [operator]
+        output_dfs["missing_patients"] = pd.concat([output_dfs["missing_patients"], patient_data], ignore_index=True)
 
     if missing_transplants_ids := utils.check_missing_transplants(
-        session, registration_ids
+            session, registration_ids
     ):
         missing_transplants = [
             session.query(UKTTransplant)
@@ -307,9 +305,8 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
             utils.make_missing_transplant_match_row(missing_transplant)
             for missing_transplant in missing_transplants
         ]
-        output_dfs["missing_transplants"] = output_dfs["missing_transplants"].append(
-            transplant_data, ignore_index=True
-        )  # type: ignore [operator]
+
+        output_dfs["missing_transplants"] = pd.concat([output_dfs["missing_transplants"], transplant_data], ignore_index=True)
 
     if deleted_uktssa := utils.deleted_patient_check(session, file_uktssas):
         deleted_patients = [
@@ -321,9 +318,8 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
             utils.make_deleted_patient_row("Deleted", deleted_patient)
             for deleted_patient in deleted_patients
         ]
-        output_dfs["deleted_patients"] = output_dfs["deleted_patients"].append(
-            deleted_data, ignore_index=True
-        )  # type: ignore [operator]
+
+        output_dfs["deleted_patients"] = pd.concat([output_dfs["deleted_patients"], deleted_data], ignore_index=True)
 
     wb = Workbook()
     wb.remove(wb["Sheet"])
