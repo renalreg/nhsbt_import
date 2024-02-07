@@ -44,7 +44,7 @@ jobs:
       - name: PR Title
         id: pr_title
         run: |
-          COMMIT_MESSAGES=$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | grep -E '^(feat!|feat|fix|docs)')
+          COMMIT_MESSAGES=$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | grep -E '^(feat!|feat|fix|refactor|docs)')
 
           SUPERIOR_COMMIT=$(echo "$COMMIT_MESSAGES" | grep -E '^(feat!)' | sort -r | head -n 1)
 
