@@ -57,6 +57,10 @@ jobs:
           fi
 
           if [ -z "$SUPERIOR_COMMIT" ]; then
+              SUPERIOR_COMMIT=$(echo "$COMMIT_MESSAGES" | grep -E '^(refactor)' | sort -r | head -n 1)
+          fi
+
+          if [ -z "$SUPERIOR_COMMIT" ]; then
               SUPERIOR_COMMIT=$(echo "$COMMIT_MESSAGES" | grep -E '^(docs)' | sort -r | head -n 1)
           fi
 
