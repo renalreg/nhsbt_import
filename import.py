@@ -39,8 +39,8 @@ from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore [import]
 from nhsbt_import.df_columns import df_columns
 from nhsbt_import import utils
 
-# TODO: [NHSBT-7] Fix FutureWarning. Append being made obsolete
-warnings.filterwarnings("ignore", category=FutureWarning)
+
+
 args = utils.args_parse()
 log = utils.create_logs(args.directory)
 
