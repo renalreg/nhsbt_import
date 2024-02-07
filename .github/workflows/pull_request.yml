@@ -77,7 +77,7 @@ jobs:
       - name: PR Features
         id: pr_features
         run: |
-          FEATURE_COMMITS=$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | grep -E '^(feat!(:|\([^)]*\))|feat(:|\([^)]*\))|fix(:|\([^)]*\))|docs(:|\([^)]*\)))' | awk '{printf "%s\\n", $0}')
+          FEATURE_COMMITS=$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --oneline --pretty=format:"%s" | grep -E '^(feat!(:|\([^)]*\))|feat(:|\([^)]*\))|fix(:|\([^)]*\))|refactor(:|\([^)]*\))|docs(:|\([^)]*\)))' | awk '{printf "%s\\n", $0}')
           echo "${FEATURE_COMMITS}"
           {
             echo 'pr_features<<EOF'
@@ -88,7 +88,7 @@ jobs:
       - name: PR Notes
         id: pr_notes
         run: |
-          COMMIT_BODIES=$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --pretty=format:"%s%n%b" | awk '/^(feat!|feat|fix|docs)/ {inBody=1; next} inBody {print $0; next} {inBody=0}' | awk '{printf "%s\\n", $0}')
+          COMMIT_BODIES=$(git log remotes/origin/main..${{ steps.extract_branch_name.outputs.branch_name }} --pretty=format:"%s%n%b" | awk '/^(feat!|feat|fix|refactor|docs)/ {inBody=1; next} inBody {print $0; next} {inBody=0}' | awk '{printf "%s\\n", $0}')
           echo "${COMMIT_BODIES}"
           {
             echo 'pr_notes<<EOF'
