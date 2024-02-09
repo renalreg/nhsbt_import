@@ -255,8 +255,8 @@ def test_create_df():
 
 
 def test_clean_dataframe():
-    data = {'text': ["Hello", "World", "St George's", "Null\x00Byte"]}
-    data_cleaned = {'text': ["Hello", "World", "StGeorges", "NullByte"]}
+    data = {"text": ["Hello", "World", "St George's", "Null\x00Byte"]}
+    data_cleaned = {"text": ["Hello", "World", "StGeorges", "NullByte"]}
     df = pd.DataFrame(data)
 
     cleaned_df = utils.nhsbt_clean(df)
@@ -594,8 +594,8 @@ def test_get_input_file_path_multiple_csv(mocker):
             utils.get_input_file_path(directory)
 
         assert (
-                str(excinfo.value)
-                == f"Expected to find one import CSV file in {directory}, but found 2 files."
+            str(excinfo.value)
+            == f"Expected to find one import CSV file in {directory}, but found 2 files."
         )
 
 
@@ -648,27 +648,27 @@ def test_make_transplant_match_row(incoming_transplant, existing_transplant):
     assert row.get("Transplant Unit - NHSBT") == incoming_transplant.transplant_unit
     assert isinstance(row.get("Registration Date - NHSBT"), (datetime.date, type(None)))
     assert (
-            row.get("Registration Date Type - NHSBT")
-            == incoming_transplant.registration_date_type
+        row.get("Registration Date Type - NHSBT")
+        == incoming_transplant.registration_date_type
     )
     assert isinstance(
         row.get("Registration End Date - NHSBT"), (datetime.date, type(None))
     )
     assert (
-            row.get("Registration End Status - NHSBT")
-            == incoming_transplant.registration_end_status
+        row.get("Registration End Status - NHSBT")
+        == incoming_transplant.registration_end_status
     )
     assert (
-            row.get("Transplant Consideration - NHSBT")
-            == incoming_transplant.transplant_consideration
+        row.get("Transplant Consideration - NHSBT")
+        == incoming_transplant.transplant_consideration
     )
     assert (
-            row.get("Transplant Dialysis - NHSBT")
-            == incoming_transplant.transplant_dialysis
+        row.get("Transplant Dialysis - NHSBT")
+        == incoming_transplant.transplant_dialysis
     )
     assert (
-            row.get("Transplant Relationship - NHSBT")
-            == incoming_transplant.transplant_relationship
+        row.get("Transplant Relationship - NHSBT")
+        == incoming_transplant.transplant_relationship
     )
 
 
@@ -699,37 +699,37 @@ def test_update_nhsbt_transplant(existing_transplant, incoming_transplant):
     assert existing_transplant.transplant_organ == incoming_transplant.transplant_organ
     assert existing_transplant.transplant_unit == incoming_transplant.transplant_unit
     assert (
-            existing_transplant.registration_date == incoming_transplant.registration_date
+        existing_transplant.registration_date == incoming_transplant.registration_date
     )
     assert (
-            existing_transplant.registration_date_type
-            == incoming_transplant.registration_date_type
+        existing_transplant.registration_date_type
+        == incoming_transplant.registration_date_type
     )
     assert (
-            existing_transplant.registration_end_date
-            == incoming_transplant.registration_end_date
+        existing_transplant.registration_end_date
+        == incoming_transplant.registration_end_date
     )
     assert (
-            existing_transplant.registration_end_status
-            == incoming_transplant.registration_end_status
+        existing_transplant.registration_end_status
+        == incoming_transplant.registration_end_status
     )
     assert (
-            existing_transplant.transplant_consideration
-            == incoming_transplant.transplant_consideration
+        existing_transplant.transplant_consideration
+        == incoming_transplant.transplant_consideration
     )
     assert (
-            existing_transplant.transplant_dialysis
-            == incoming_transplant.transplant_dialysis
+        existing_transplant.transplant_dialysis
+        == incoming_transplant.transplant_dialysis
     )
     assert (
-            existing_transplant.transplant_relationship
-            == incoming_transplant.transplant_relationship
+        existing_transplant.transplant_relationship
+        == incoming_transplant.transplant_relationship
     )
     assert existing_transplant.transplant_sex == incoming_transplant.transplant_sex
     assert existing_transplant.cause_of_failure == incoming_transplant.cause_of_failure
     assert (
-            existing_transplant.cause_of_failure_text
-            == incoming_transplant.cause_of_failure_text
+        existing_transplant.cause_of_failure_text
+        == incoming_transplant.cause_of_failure_text
     )
     assert existing_transplant.cit_mins == incoming_transplant.cit_mins
     assert existing_transplant.hla_mismatch == incoming_transplant.hla_mismatch
