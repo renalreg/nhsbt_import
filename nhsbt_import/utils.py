@@ -1014,8 +1014,10 @@ def nhsbt_clean(unclean_df: pd.DataFrame):
     pd.DataFrame containing the cleaned dataframe
     """
     null_byte_regex = r"\x00"
-    unicode_regex = r"\W"
+    unicode_regex = r'[^\w\s]'
     clean_df = unclean_df.replace(
-        to_replace=[null_byte_regex, unicode_regex], value="", regex=True
+        to_replace=[null_byte_regex, unicode_regex],
+        value="",
+        regex=True,
     )
     return clean_df

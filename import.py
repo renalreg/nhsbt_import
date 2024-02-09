@@ -244,8 +244,6 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
         ValueError: Number of columns in the NHSBT file isn't as expected
     """
 
-    # TODO: [NHSBT-6] Automate the cleaning of the NHSBT file
-
     ###################################
     expected_number_of_columns = 125
     ###################################
