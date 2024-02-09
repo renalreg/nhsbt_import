@@ -1009,9 +1009,9 @@ def nhsbt_clean(unclean_df: pd.DataFrame):
     Checks that there are no NULL bytes and replace with blanks
     Filter out Unicode characters like apostrophes in "St George's", replace with blanks
     Args:
-
+    unclean_df: pd.DataFrame containing the dataframe to be cleaned
     Returns:
-
+    pd.DataFrame containing the cleaned dataframe
     """
     null_byte_regex = r"\x00"
     unicode_regex = r"\W"

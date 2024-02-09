@@ -255,8 +255,8 @@ def test_create_df():
 
 
 def test_clean_dataframe():
-    data = {"text": ["Hello", "World", "St George's", "Null\x00Byte"]}
-    data_cleaned = {"text": ["Hello", "World", "StGeorges", "NullByte"]}
+    data = {"text_ID": ["Hello", "World", "St George's", "Null\x00Byte"]}
+    data_cleaned = {"text_ID": ["Hello", "World", "StGeorges", "NullByte"]}
     df = pd.DataFrame(data)
 
     cleaned_df = utils.nhsbt_clean(df)
