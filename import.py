@@ -24,7 +24,6 @@ Returns:
 """
 
 import os
-import warnings
 from typing import Optional
 
 import pandas as pd
@@ -39,8 +38,7 @@ from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore [import]
 from nhsbt_import.df_columns import df_columns
 from nhsbt_import import utils
 
-# TODO: [NHSBT-7] Fix FutureWarning. Append being made obsolete
-warnings.filterwarnings("ignore", category=FutureWarning)
+
 args = utils.args_parse()
 log = utils.create_logs(args.directory)
 
@@ -288,8 +286,7 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
             utils.make_missing_patient_row("Missing", missing_patient)
             for missing_patient in missing_patients
         ]
-
-        output_dfs["missing_patients"] = output_dfs["missing_patients"].append(
+        output_dfs["missing_patients"] = output_dfs["missing_patients"].concat(
             patient_data, ignore_index=True
         )  # type: ignore [operator]
 
@@ -307,7 +304,8 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
             utils.make_missing_transplant_match_row(missing_transplant)
             for missing_transplant in missing_transplants
         ]
-        output_dfs["missing_transplants"] = output_dfs["missing_transplants"].append(
+
+        output_dfs["missing_transplants"] = output_dfs["missing_transplants"].concat(
             transplant_data, ignore_index=True
         )  # type: ignore [operator]
 
@@ -321,7 +319,8 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
             utils.make_deleted_patient_row("Deleted", deleted_patient)
             for deleted_patient in deleted_patients
         ]
-        output_dfs["deleted_patients"] = output_dfs["deleted_patients"].append(
+
+        output_dfs["deleted_patients"] = output_dfs["deleted_patients"].concat(
             deleted_data, ignore_index=True
         )  # type: ignore [operator]
 
