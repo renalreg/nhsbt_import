@@ -37,6 +37,7 @@ from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore [import]
 
 from nhsbt_import.df_columns import df_columns
 from nhsbt_import import utils
+from nhsbt_import.utils import nhsbt_clean
 
 
 args = utils.args_parse()
@@ -241,16 +242,16 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
         ValueError: Number of columns in the NHSBT file isn't as expected
     """
 
-    # TODO: [NHSBT-6] Automate the cleaning of the NHSBT file
-
     ###################################
     expected_number_of_columns = 125
     ###################################
 
-    nhsbt_df = pd.read_csv(
-        input_file_path,
-        na_filter=False,
-        skip_blank_lines=True,
+    nhsbt_df = nhsbt_clean(
+        pd.read_csv(
+            input_file_path,
+            na_filter=False,
+            skip_blank_lines=True,
+        )
     )
 
     utils.column_is_int(nhsbt_df, "UKTR_ID")

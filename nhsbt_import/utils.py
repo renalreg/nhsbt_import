@@ -28,6 +28,7 @@ Functions:
     make_transplant_match_row(match_type, incoming_transplant, existing_transplant): Creates a row for the transplant match sheet
     update_nhsbt_patient(incoming_patient, existing_patient): Updates an existing patient
     update_nhsbt_transplant(incoming_transplant, existing_transplant): Updates an existing transplant
+    nhsbt_clean(unclean_dataframe): Cleans up the dataframe
 """
 import argparse
 import logging
@@ -1000,3 +1001,23 @@ def update_nhsbt_transplant(
     existing_transplant.cit_mins = incoming_transplant.cit_mins
     existing_transplant.hla_mismatch = incoming_transplant.hla_mismatch
     existing_transplant.ukt_suspension = incoming_transplant.ukt_suspension
+
+
+def nhsbt_clean(unclean_df: pd.DataFrame):
+    """
+    Clean the NHSBT file
+    Checks that there are no NULL bytes and replace with blanks
+    Filter out Unicode characters like apostrophes in "St George's", replace with blanks
+    Args:
+    unclean_df: pd.DataFrame containing the dataframe to be cleaned
+    Returns:
+    pd.DataFrame containing the cleaned dataframe
+    """
+    null_byte_regex = r"\x00"
+    unicode_regex = r'[^\w\s]'
+    clean_df = unclean_df.replace(
+        to_replace=[null_byte_regex, unicode_regex],
+        value="",
+        regex=True,
+    )
+    return clean_df

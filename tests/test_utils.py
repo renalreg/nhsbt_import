@@ -254,6 +254,17 @@ def test_create_df():
     assert df.empty
 
 
+def test_clean_dataframe():
+    data = {"text_ID": ["Hello", "World", "St George's", "Null\x00Byte"]}
+    data_cleaned = {"text_ID": ["Hello", "World", "St Georges", "NullByte"]}
+    df = pd.DataFrame(data)
+
+    cleaned_df = utils.nhsbt_clean(df)
+    print(cleaned_df)
+
+    assert cleaned_df.equals(pd.DataFrame(data_cleaned))  # Compare DataFrames
+
+
 def test_create_incoming_patient_valid_input():
     fake_date = fake.date()
     row = {
