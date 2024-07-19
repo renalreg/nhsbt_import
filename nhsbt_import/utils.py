@@ -497,12 +497,13 @@ def find_differences(row: tuple):
     Returns:
         Dict: The differing values
     """
+
     sliced_row = row[3:]
     last_index = len(sliced_row) - 1
     differences = {}
     while last_index > 0:
         first_index, second_index = last_index, last_index - 1
-        if sliced_row[first_index] != sliced_row[second_index]:
+        if clean_string(str(sliced_row[first_index])) != clean_string(str(sliced_row[second_index])):
             differences[first_index + 4] = second_index + 4
         last_index -= 2
 
