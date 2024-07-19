@@ -24,6 +24,7 @@ Returns:
 """
 
 import os
+import warnings
 from typing import Optional
 
 import pandas as pd
@@ -35,20 +36,20 @@ from sqlalchemy.orm import Session
 from ukrr_models.nhsbt_models import UKTPatient, UKTTransplant  # type: ignore [import]
 from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore [import]
 
-from nhsbt_import.df_columns import df_columns
 from nhsbt_import import utils
+from nhsbt_import.df_columns import df_columns
 from nhsbt_import.utils import nhsbt_clean
 
-
+warnings.simplefilter(action='ignore', category=FutureWarning)
 args = utils.args_parse()
 log = utils.create_logs(args.directory)
 
 
 def import_patient(
-    index: int,
-    row: pd.Series,
-    output_dfs: dict[str, pd.DataFrame],
-    session: Session,
+        index: int,
+        row: pd.Series,
+        output_dfs: dict[str, pd.DataFrame],
+        session: Session,
 ) -> Optional[str]:
     """
     Take a patient row and checks to see if the uktssa is present in the database. If not
@@ -74,14 +75,14 @@ def import_patient(
     incoming_patient = utils.create_incoming_patient(index, row)
     # If len == 1 patient exists, check if update is required
     if (
-        len(
-            results := (
-                session.query(UKTPatient)
-                .filter_by(uktssa_no=incoming_patient.uktssa_no)
-                .all()
+            len(
+                results := (
+                        session.query(UKTPatient)
+                                .filter_by(uktssa_no=incoming_patient.uktssa_no)
+                                .all()
+                )
             )
-        )
-        == 1
+            == 1
     ):
         log.info("UKT Patient %s found in database", incoming_patient.uktssa_no)
         existing_patient = results[0]
@@ -127,7 +128,7 @@ def import_patient(
 
 
 def import_transplants(
-    index: int, row: pd.Series, output_dfs: dict[str, pd.DataFrame], session: Session
+        index: int, row: pd.Series, output_dfs: dict[str, pd.DataFrame], session: Session
 ) -> list[str]:
     """
     Loops over a row looking for dates of registration on the transplant list which is the
@@ -160,22 +161,20 @@ def import_transplants(
     registration_ids = []
 
     while (
-        transplant_counter <= max_transplants
-        and row[f"uktr_date_on{transplant_counter}"] != ""
+            transplant_counter <= max_transplants
+            and row[f"uktr_date_on{transplant_counter}"] != ""
     ):
         incoming_transplant = utils.create_incoming_transplant(
             index, row, transplant_counter
         )
         registration_ids.append(incoming_transplant.registration_id)
         # If len == 1 transplant exists, check if update is required
-        if (
-            len(
-                results := session.query(UKTTransplant)
-                .filter_by(registration_id=incoming_transplant.registration_id)
-                .all()
-            )
-            == 1
-        ):
+        results = (
+            session.query(UKTTransplant)
+            .filter_by(registration_id=incoming_transplant.registration_id)
+            .all()
+        )
+        if len(results) == 1:
             log.info(
                 "Registration ID %s found in database",
                 incoming_transplant.registration_id,
@@ -251,6 +250,7 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
             input_file_path,
             na_filter=False,
             skip_blank_lines=True,
+            encoding="Windows-1252",
         )
     )
 
@@ -278,51 +278,68 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
     file_uktssas = nhsbt_df["UKTR_ID"].tolist()
 
     if missing_uktssa := utils.check_missing_patients(session, file_uktssas):
-        missing_patients = [
-            session.query(UKTPatient).filter_by(uktssa_no=uktssa).first()
-            for uktssa in missing_uktssa
-        ]
+        missing_patients = []
+        batch_size = 1000
+        for i in range(0, len(missing_uktssa), batch_size):
+            batch = missing_uktssa[i: i + batch_size]
+            results = (
+                session.query(UKTPatient).filter(UKTPatient.uktssa_no.in_(batch)).all()
+            )
+            missing_patients.extend(results)
 
         patient_data = [
             utils.make_missing_patient_row("Missing", missing_patient)
             for missing_patient in missing_patients
         ]
-        output_dfs["missing_patients"] = output_dfs["missing_patients"].concat(
-            patient_data, ignore_index=True
+        patient_data = pd.DataFrame(patient_data)
+
+        output_dfs["missing_patients"] = pd.concat(
+            [output_dfs["missing_patients"], patient_data], axis=0, ignore_index=True
         )  # type: ignore [operator]
 
     if missing_transplants_ids := utils.check_missing_transplants(
-        session, registration_ids
+            session, registration_ids
     ):
-        missing_transplants = [
-            session.query(UKTTransplant)
-            .filter_by(registration_id=transplant_id)
-            .first()
-            for transplant_id in missing_transplants_ids
-        ]
+
+        missing_transplants = []
+        batch_size = 1000
+        for i in range(0, len(missing_transplants_ids), batch_size):
+            batch = missing_transplants_ids[i: i + batch_size]
+            results = (
+                session.query(UKTTransplant).filter(UKTTransplant.registration_id.in_(batch)).all()
+            )
+            missing_transplants.extend(results)
 
         transplant_data = [
             utils.make_missing_transplant_match_row(missing_transplant)
             for missing_transplant in missing_transplants
         ]
+        transplant_data = pd.DataFrame(transplant_data)
 
-        output_dfs["missing_transplants"] = output_dfs["missing_transplants"].concat(
-            transplant_data, ignore_index=True
+        output_dfs["missing_transplants"] = pd.concat(
+            [output_dfs["missing_transplants"], transplant_data], axis=0, ignore_index=True
         )  # type: ignore [operator]
 
     if deleted_uktssa := utils.deleted_patient_check(session, file_uktssas):
-        deleted_patients = [
-            session.query(UKRR_Deleted_Patient).filter_by(uktssa_no=uktssa).first()
-            for uktssa in deleted_uktssa
-        ]
+
+        deleted_patients = []
+        batch_size = 1000
+        for i in range(0, len(deleted_uktssa), batch_size):
+            batch = deleted_uktssa[i: i + batch_size]
+            results = (
+                session.query(UKRR_Deleted_Patient).filter(UKRR_Deleted_Patient.uktssa_no.in_(batch)).all()
+            )
+            deleted_patients.extend(results)
+
 
         deleted_data = [
             utils.make_deleted_patient_row("Deleted", deleted_patient)
             for deleted_patient in deleted_patients
         ]
+        deleted_data = pd.DataFrame(deleted_data)
 
-        output_dfs["deleted_patients"] = output_dfs["deleted_patients"].concat(
-            deleted_data, ignore_index=True
+        output_dfs["deleted_patients"] = pd.concat(
+            [output_dfs["deleted_patients"], deleted_data], axis=0, ignore_index=True
         )  # type: ignore [operator]
 
     wb = Workbook()
@@ -344,9 +361,9 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
             adjusted_width = int(cell_length) + 2
             ws.column_dimensions[column].width = adjusted_width
 
-        for row in ws:
-            for cell in row:
-                cell.alignment = Alignment(horizontal="center")
+        #for row in ws:
+        #    for cell in row:
+        #       cell.alignment = Alignment(horizontal="center")
 
     if len(wb.sheetnames) == 0:
         log.info("Nothing to write to audit file")
