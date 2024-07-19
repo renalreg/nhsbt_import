@@ -168,9 +168,9 @@ def compare_patients(
         bool: True if the data matches, False otherwise
     """
     # Ignore rr_no as it will never match
-    if incoming_patient.surname != existing_patient.surname:
+    if clean_string(incoming_patient.surname) != clean_string(existing_patient.surname):
         return False
-    if incoming_patient.forename !=existing_patient.forename:
+    if clean_string(incoming_patient.forename) != clean_string(existing_patient.forename):
         return False
     if incoming_patient.sex != existing_patient.sex:
         return False
@@ -210,7 +210,7 @@ def compare_transplants(
         return False
     if incoming_transplant.transplant_organ != existing_transplant.transplant_organ:
         return False
-    if incoming_transplant.transplant_unit != existing_transplant.transplant_unit:
+    if clean_string(incoming_transplant.transplant_unit) != clean_string(existing_transplant.transplant_unit):
         return False
     if incoming_transplant.ukt_fail_date != existing_transplant.ukt_fail_date:
         return False
@@ -253,8 +253,8 @@ def compare_transplants(
     if incoming_transplant.cause_of_failure != existing_transplant.cause_of_failure:
         return False
     if (
-            incoming_transplant.cause_of_failure_text
-            != existing_transplant.cause_of_failure_text
+            clean_string(incoming_transplant.cause_of_failure_text)
+            != clean_string(existing_transplant.cause_of_failure_text)
     ):
         return False
     if incoming_transplant.cit_mins != existing_transplant.cit_mins:
