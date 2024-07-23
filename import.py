@@ -221,6 +221,7 @@ def import_transplants(
 
 
 def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
+    # THIS IS NOW BREAKING PYLINT BECAUSE IT'S TOO LONG
     """
     Reads in the NHSBT file and builds all the output dataframes. Uses import_patients()
     and import_transplants to import the data to the database and build the out puts. Runs

@@ -255,6 +255,7 @@ def test_create_df():
 
 
 def test_clean_dataframe():
+    # This test is failing
     data = {"text_ID": ["Hello", "World", "St George's", "Null\x00Byte"]}
     data_cleaned = {"text_ID": ["Hello", "World", "St Georges", "NullByte"]}
     df = pd.DataFrame(data)
@@ -317,6 +318,8 @@ def test_create_incoming_patient_invalid_uktr_id():
 
 
 def test_create_incoming_transplant():
+    # This test fails sometimes, I suspect it's to do with the changes
+    # to boolean for the uktr_suspension I saw in a previous commit
     row = pd.Series(
         {
             "uktr_tx_id1": fake.random_number(digits=4),
