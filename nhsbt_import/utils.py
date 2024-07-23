@@ -30,6 +30,7 @@ Functions:
     update_nhsbt_transplant(incoming_transplant, existing_transplant): Updates an existing transplant
     nhsbt_clean(unclean_dataframe): Cleans up the dataframe
 """
+
 import argparse
 import logging
 import logging.config
@@ -150,11 +151,11 @@ def check_missing_transplants(session: Session, file_data: list[str]) -> list[st
 def clean_string(value):
     if value is None:
         return ""
-    return re.sub(r'[^a-zA-Z0-9]', '', value)
+    return re.sub(r"[^a-zA-Z0-9]", "", value)
 
 
 def compare_patients(
-        incoming_patient: UKTPatient, existing_patient: UKTPatient
+    incoming_patient: UKTPatient, existing_patient: UKTPatient
 ) -> bool:
     """
     Compares incoming and existing patient data. Ignore rr_no as it will never match
@@ -170,7 +171,9 @@ def compare_patients(
     # Ignore rr_no as it will never match
     if clean_string(incoming_patient.surname) != clean_string(existing_patient.surname):
         return False
-    if clean_string(incoming_patient.forename) != clean_string(existing_patient.forename):
+    if clean_string(incoming_patient.forename) != clean_string(
+        existing_patient.forename
+    ):
         return False
     if incoming_patient.sex != existing_patient.sex:
         return False
@@ -188,7 +191,7 @@ def compare_patients(
 
 
 def compare_transplants(
-        incoming_transplant: UKTPatient, existing_transplant: UKTPatient
+    incoming_transplant: UKTPatient, existing_transplant: UKTPatient
 ) -> bool:
     """
     Compares incoming and existing transplant data.
@@ -210,7 +213,9 @@ def compare_transplants(
         return False
     if incoming_transplant.transplant_organ != existing_transplant.transplant_organ:
         return False
-    if clean_string(incoming_transplant.transplant_unit) != clean_string(existing_transplant.transplant_unit):
+    if clean_string(incoming_transplant.transplant_unit) != clean_string(
+        existing_transplant.transplant_unit
+    ):
         return False
     if incoming_transplant.ukt_fail_date != existing_transplant.ukt_fail_date:
         return False
@@ -219,42 +224,41 @@ def compare_transplants(
     if incoming_transplant.registration_date != existing_transplant.registration_date:
         return False
     if (
-            incoming_transplant.registration_date_type
-            != existing_transplant.registration_date_type
+        incoming_transplant.registration_date_type
+        != existing_transplant.registration_date_type
     ):
         return False
     if (
-            incoming_transplant.registration_end_date
-            != existing_transplant.registration_end_date
+        incoming_transplant.registration_end_date
+        != existing_transplant.registration_end_date
     ):
         return False
     if (
-            incoming_transplant.registration_end_status
-            != existing_transplant.registration_end_status
+        incoming_transplant.registration_end_status
+        != existing_transplant.registration_end_status
     ):
         return False
     if (
-            incoming_transplant.transplant_consideration
-            != existing_transplant.transplant_consideration
+        incoming_transplant.transplant_consideration
+        != existing_transplant.transplant_consideration
     ):
         return False
     if (
-            incoming_transplant.transplant_dialysis
-            != existing_transplant.transplant_dialysis
+        incoming_transplant.transplant_dialysis
+        != existing_transplant.transplant_dialysis
     ):
         return False
     if (
-            incoming_transplant.transplant_relationship
-            != existing_transplant.transplant_relationship
+        incoming_transplant.transplant_relationship
+        != existing_transplant.transplant_relationship
     ):
         return False
     if incoming_transplant.transplant_sex != existing_transplant.transplant_sex:
         return False
     if incoming_transplant.cause_of_failure != existing_transplant.cause_of_failure:
         return False
-    if (
-            clean_string(incoming_transplant.cause_of_failure_text)
-            != clean_string(existing_transplant.cause_of_failure_text)
+    if clean_string(incoming_transplant.cause_of_failure_text) != clean_string(
+        existing_transplant.cause_of_failure_text
     ):
         return False
     if incoming_transplant.cit_mins != existing_transplant.cit_mins:
@@ -275,7 +279,7 @@ def colour_differences(wb: Workbook, sheet_name: str):
     """
     sheet = wb[sheet_name]
     for row_number, row in enumerate(
-            sheet.iter_rows(min_row=2, values_only=True), start=2
+        sheet.iter_rows(min_row=2, values_only=True), start=2
     ):
         if differences := find_differences(row):
             for first_column, second_column in differences.items():
@@ -360,7 +364,7 @@ def create_incoming_patient(index: int, row: pd.Series) -> UKTPatient:
 
 
 def create_incoming_transplant(
-        index: int, row: pd.Series, transplant_counter: int
+    index: int, row: pd.Series, transplant_counter: int
 ) -> UKTTransplant:
     """
     Creates an incoming transplant object. Transplant_counter is used to identify
@@ -402,8 +406,7 @@ def create_incoming_transplant(
         ),
         cit_mins=format_str(row[f"uktr_cit_mins{transplant_counter}"]),
         hla_mismatch=format_str(row[f"uktr_hla_mm{transplant_counter}"]),
-        ukt_suspension=format_bool(row[f"uktr_suspension_{transplant_counter}"])
-
+        ukt_suspension=format_bool(row[f"uktr_suspension_{transplant_counter}"]),
     )
 
 
@@ -503,7 +506,9 @@ def find_differences(row: tuple):
     differences = {}
     while last_index > 0:
         first_index, second_index = last_index, last_index - 1
-        if clean_string(str(sliced_row[first_index])) != clean_string(str(sliced_row[second_index])):
+        if clean_string(str(sliced_row[first_index])) != clean_string(
+            str(sliced_row[second_index])
+        ):
             differences[first_index + 4] = second_index + 4
         last_index -= 2
 
@@ -526,7 +531,7 @@ def format_bool(value: Any) -> Optional[bool]:
 
 
 def format_date(
-        str_date: Any, strip_time=False
+    str_date: Any, strip_time=False
 ) -> Optional[Union[datetime.datetime, datetime.date]]:
     """
     Converts a string to a datetime. Returns None if the string is empty
@@ -687,7 +692,7 @@ def get_input_file_path(directory: str) -> str:
 
 
 def make_deleted_patient_row(
-        match_type: str, deleted_patient: UKRR_Deleted_Patient
+    match_type: str, deleted_patient: UKRR_Deleted_Patient
 ) -> dict[str, str]:
     """
     Creates a row for the deleted patient sheet
@@ -717,7 +722,7 @@ def make_deleted_patient_row(
 
 
 def make_missing_patient_row(
-        match_type: str, missing_patient: UKTPatient
+    match_type: str, missing_patient: UKTPatient
 ) -> dict[str, str]:
     """
     Creates a row for the missing patient sheet
@@ -746,7 +751,7 @@ def make_missing_patient_row(
 
 
 def make_missing_transplant_match_row(
-        missing_transplant: UKTTransplant,
+    missing_transplant: UKTTransplant,
 ) -> dict[str, str | int | bool | None]:
     """
     Creates a row for the missing transplant sheet
@@ -789,9 +794,9 @@ def make_missing_transplant_match_row(
 
 
 def make_patient_match_row(
-        match_type: str,
-        incoming_patient: UKTPatient,
-        existing_patient: Optional[UKTPatient],
+    match_type: str,
+    incoming_patient: UKTPatient,
+    existing_patient: Optional[UKTPatient],
 ) -> dict[str, str]:
     """
     Creates a row for the patient match sheet
@@ -843,9 +848,9 @@ def make_patient_match_row(
 
 
 def make_transplant_match_row(
-        match_type: str,
-        incoming_transplant: UKTTransplant,
-        existing_transplant: Optional[UKTTransplant],
+    match_type: str,
+    incoming_transplant: UKTTransplant,
+    existing_transplant: Optional[UKTTransplant],
 ) -> dict[str, str]:
     """
     Creates a row for the transplant match sheet
@@ -899,29 +904,29 @@ def make_transplant_match_row(
         transplant_row["Registration Date - RR"] = (
             format_date(existing_transplant.registration_date, strip_time=True),
         )
-        transplant_row[
-            "Registration Date Type - RR"
-        ] = existing_transplant.registration_date_type
+        transplant_row["Registration Date Type - RR"] = (
+            existing_transplant.registration_date_type
+        )
         transplant_row["Registration End Date - RR"] = (
             format_date(existing_transplant.registration_end_date, strip_time=True),
         )
-        transplant_row[
-            "Registration End Status - RR"
-        ] = existing_transplant.registration_end_status
-        transplant_row[
-            "Transplant Consideration - RR"
-        ] = existing_transplant.transplant_consideration
-        transplant_row[
-            "Transplant Dialysis - RR"
-        ] = existing_transplant.transplant_dialysis
-        transplant_row[
-            "Transplant Relationship - RR"
-        ] = existing_transplant.transplant_relationship
+        transplant_row["Registration End Status - RR"] = (
+            existing_transplant.registration_end_status
+        )
+        transplant_row["Transplant Consideration - RR"] = (
+            existing_transplant.transplant_consideration
+        )
+        transplant_row["Transplant Dialysis - RR"] = (
+            existing_transplant.transplant_dialysis
+        )
+        transplant_row["Transplant Relationship - RR"] = (
+            existing_transplant.transplant_relationship
+        )
         transplant_row["Transplant Sex - RR"] = existing_transplant.transplant_sex
         transplant_row["Cause of Failure - RR"] = existing_transplant.cause_of_failure
-        transplant_row[
-            "Cause of Failure Text - RR"
-        ] = existing_transplant.cause_of_failure_text
+        transplant_row["Cause of Failure Text - RR"] = (
+            existing_transplant.cause_of_failure_text
+        )
         transplant_row["CIT Mins - RR"] = existing_transplant.cit_mins
         transplant_row["HLA Mismatch - RR"] = existing_transplant.hla_mismatch
         transplant_row["UKT Suspension - RR"] = format_bool(
@@ -932,7 +937,7 @@ def make_transplant_match_row(
 
 
 def update_nhsbt_patient(
-        incoming_patient: UKTPatient, existing_patient: UKTPatient
+    incoming_patient: UKTPatient, existing_patient: UKTPatient
 ) -> UKTPatient:
     """
     Updates an existing patient with incoming patient data. Incoming RR will always be
@@ -959,7 +964,7 @@ def update_nhsbt_patient(
 
 
 def update_nhsbt_transplant(
-        incoming_transplant: UKTTransplant, existing_transplant: UKTTransplant
+    incoming_transplant: UKTTransplant, existing_transplant: UKTTransplant
 ) -> UKTTransplant:
     """
     Updates an existing transplant with incoming transplant data. Incoming RR will
@@ -1019,20 +1024,22 @@ def nhsbt_clean(unclean_df: pd.DataFrame):
     pd.DataFrame containing the cleaned dataframe
     """
     null_byte_regex = r"\x00"
-    unicode_regex = r'[^a-zA-Z0-9 ]'
+    unicode_regex = r"[^\x00-\x7F]"
 
     # List of columns that do not contain 'date' or 'dob' in their names
-    date_columns = [col for col in unclean_df.columns if 'date' not in col.lower() and
-                    'dob' not in col.lower() and
-                    'fail' not in col.lower()]
+    date_columns = [
+        col
+        for col in unclean_df.columns
+        if "date" not in col.lower()
+        and "dob" not in col.lower()
+        and "fail" not in col.lower()
+    ]
 
     # Apply replacements only to the identified columns
     clean_df = unclean_df.copy()
     for col in date_columns:
         clean_df[col] = clean_df[col].replace(
-            to_replace=[null_byte_regex, unicode_regex],
-            value="",
-            regex=True
+            to_replace=[null_byte_regex, unicode_regex], value="", regex=True
         )
 
     return clean_df
