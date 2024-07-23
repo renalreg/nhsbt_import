@@ -904,29 +904,29 @@ def make_transplant_match_row(
         transplant_row["Registration Date - RR"] = (
             format_date(existing_transplant.registration_date, strip_time=True),
         )
-        transplant_row["Registration Date Type - RR"] = (
-            existing_transplant.registration_date_type
-        )
+        transplant_row[
+            "Registration Date Type - RR"
+        ] = existing_transplant.registration_date_type
         transplant_row["Registration End Date - RR"] = (
             format_date(existing_transplant.registration_end_date, strip_time=True),
         )
-        transplant_row["Registration End Status - RR"] = (
-            existing_transplant.registration_end_status
-        )
-        transplant_row["Transplant Consideration - RR"] = (
-            existing_transplant.transplant_consideration
-        )
-        transplant_row["Transplant Dialysis - RR"] = (
-            existing_transplant.transplant_dialysis
-        )
-        transplant_row["Transplant Relationship - RR"] = (
-            existing_transplant.transplant_relationship
-        )
+        transplant_row[
+            "Registration End Status - RR"
+        ] = existing_transplant.registration_end_status
+        transplant_row[
+            "Transplant Consideration - RR"
+        ] = existing_transplant.transplant_consideration
+        transplant_row[
+            "Transplant Dialysis - RR"
+        ] = existing_transplant.transplant_dialysis
+        transplant_row[
+            "Transplant Relationship - RR"
+        ] = existing_transplant.transplant_relationship
         transplant_row["Transplant Sex - RR"] = existing_transplant.transplant_sex
         transplant_row["Cause of Failure - RR"] = existing_transplant.cause_of_failure
-        transplant_row["Cause of Failure Text - RR"] = (
-            existing_transplant.cause_of_failure_text
-        )
+        transplant_row[
+            "Cause of Failure Text - RR"
+        ] = existing_transplant.cause_of_failure_text
         transplant_row["CIT Mins - RR"] = existing_transplant.cit_mins
         transplant_row["HLA Mismatch - RR"] = existing_transplant.hla_mismatch
         transplant_row["UKT Suspension - RR"] = format_bool(
