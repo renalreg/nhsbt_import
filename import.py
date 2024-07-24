@@ -28,6 +28,7 @@ import warnings
 from typing import Optional
 
 import pandas as pd
+from openpyxl.styles import Alignment
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.dataframe import dataframe_to_rows
@@ -250,7 +251,7 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
             input_file_path,
             na_filter=False,
             skip_blank_lines=True,
-            encoding="Windows-1252",
+            encoding="windows-1252",
         )
     )
 
@@ -344,7 +345,7 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
 
         output_dfs["deleted_patients"] = pd.concat(
             [output_dfs["deleted_patients"], deleted_data], axis=0, ignore_index=True
-        )  # type: ignore [operator]
+        )
 
     wb = Workbook()
     wb.remove(wb["Sheet"])
@@ -365,9 +366,8 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
             adjusted_width = int(cell_length) + 2
             ws.column_dimensions[column].width = adjusted_width
 
-        # for row in ws:
-        #    for cell in row:
-        #       cell.alignment = Alignment(horizontal="center")
+        for column in ws.column_dimensions.values():
+            column.alignment = Alignment(horizontal="center")
 
     if len(wb.sheetnames) == 0:
         log.info("Nothing to write to audit file")
