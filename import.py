@@ -251,7 +251,7 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
             input_file_path,
             na_filter=False,
             skip_blank_lines=True,
-            encoding="windows-1252",
+            encoding="utf-8",
         )
     )
 
