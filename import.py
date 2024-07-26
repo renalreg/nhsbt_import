@@ -28,8 +28,8 @@ import warnings
 from typing import Optional
 
 import pandas as pd
-from openpyxl.styles import Alignment
 from openpyxl import Workbook
+from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.dataframe import dataframe_to_rows
 from sqlalchemy.orm import Session
@@ -279,21 +279,16 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
     file_uktssas = nhsbt_df["UKTR_ID"].tolist()
 
     if missing_uktssa := utils.check_missing_patients(session, file_uktssas):
-        missing_patients = []
-        batch_size = 1000
+        missing_patients = batch_query(
+            missing_uktssa, session, UKTPatient, UKTPatient.uktssa_no
+        )
 
-        for i in range(0, len(missing_uktssa), batch_size):
-            batch = missing_uktssa[i : i + batch_size]
-            results = (
-                session.query(UKTPatient).filter(UKTPatient.uktssa_no.in_(batch)).all()
-            )
-            missing_patients.extend(results)
-
-        patient_data = [
-            utils.make_missing_patient_row("Missing", missing_patient)
-            for missing_patient in missing_patients
-        ]
-        patient_data = pd.DataFrame(patient_data)
+        patient_data = pd.DataFrame(
+            [
+                utils.make_missing_patient_row("Missing", missing_patient)
+                for missing_patient in missing_patients
+            ]
+        )
 
         output_dfs["missing_patients"] = pd.concat(
             [output_dfs["missing_patients"], patient_data], axis=0, ignore_index=True
@@ -302,46 +297,38 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
     if missing_transplants_ids := utils.check_missing_transplants(
         session, registration_ids
     ):
-        missing_transplants = []
-        batch_size = 1000
-        for i in range(0, len(missing_transplants_ids), batch_size):
-            batch = missing_transplants_ids[i : i + batch_size]
-            results = (
-                session.query(UKTTransplant)
-                .filter(UKTTransplant.registration_id.in_(batch))
-                .all()
-            )
-            missing_transplants.extend(results)
+        missing_transplants = batch_query(
+            missing_transplants_ids,
+            session,
+            UKTTransplant,
+            UKTTransplant.registration_id,
+        )
 
-        transplant_data = [
-            utils.make_missing_transplant_match_row(missing_transplant)
-            for missing_transplant in missing_transplants
-        ]
-        transplant_data = pd.DataFrame(transplant_data)
+        transplant_dataframe = pd.DataFrame(
+            [
+                utils.make_missing_transplant_match_row(missing_transplant)
+                for missing_transplant in missing_transplants
+            ]
+        )
 
         output_dfs["missing_transplants"] = pd.concat(
-            [output_dfs["missing_transplants"], transplant_data],
+            [output_dfs["missing_transplants"], transplant_dataframe],
             axis=0,
             ignore_index=True,
-        )  # type: ignore [operator]
+        )
 
     if deleted_uktssa := utils.deleted_patient_check(session, file_uktssas):
-        deleted_patients = []
-        batch_size = 1000
-        for i in range(0, len(deleted_uktssa), batch_size):
-            batch = deleted_uktssa[i : i + batch_size]
-            results = (
-                session.query(UKRR_Deleted_Patient)
-                .filter(UKRR_Deleted_Patient.uktssa_no.in_(batch))
-                .all()
-            )
-            deleted_patients.extend(results)
+        deleted_patients = batch_query(
+            deleted_uktssa,
+            session,
+            UKRR_Deleted_Patient,
+            UKRR_Deleted_Patient.uktssa_no,
+        )
 
-        deleted_data = [
+        deleted_data = pd.DataFrame(
             utils.make_deleted_patient_row("Deleted", deleted_patient)
             for deleted_patient in deleted_patients
-        ]
-        deleted_data = pd.DataFrame(deleted_data)
+        )
 
         output_dfs["deleted_patients"] = pd.concat(
             [output_dfs["deleted_patients"], deleted_data], axis=0, ignore_index=True
@@ -366,8 +353,9 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
             adjusted_width = int(cell_length) + 2
             ws.column_dimensions[column].width = adjusted_width
 
-        for column in ws.column_dimensions.values():
-            column.alignment = Alignment(horizontal="center")
+        for row in ws:
+            for cell in row:
+                cell.alignment = Alignment(horizontal="center")
 
     if len(wb.sheetnames) == 0:
         log.info("Nothing to write to audit file")
@@ -377,6 +365,27 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
         if "updated_transplants" in wb.sheetnames:
             utils.colour_differences(wb, "updated_transplants")
         wb.save(audit_file_path)
+
+
+def batch_query(keys, session, query, key_filter):
+    """
+    Batch query function
+    Args:
+        keys: list of values to filter for
+        session: sqlachemy session
+        query: sqlachemy orm to query
+        key_filter: sqlachemy orm column to filter on
+
+    Returns:
+        results: list of query results
+    """
+    results = []
+    batch_size = 1000
+    for i in range(0, len(keys), batch_size):
+        batch = keys[i : i + batch_size]
+        batch_results = session.query(query).filter(key_filter.in_(batch)).all()
+        results.extend(batch_results)
+    return results
 
 
 def main():
