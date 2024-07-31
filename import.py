@@ -38,7 +38,6 @@ from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore [import]
 
 from nhsbt_import import utils
 from nhsbt_import.df_columns import df_columns
-from nhsbt_import.utils import nhsbt_clean
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 args = utils.args_parse()
@@ -246,15 +245,11 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
     expected_number_of_columns = 125
     ###################################
 
-    nhsbt_df = nhsbt_clean(
-        pd.read_csv(
-            input_file_path,
-            na_filter=False,
-            skip_blank_lines=True,
-            encoding="utf-8",
-        )
+    nhsbt_df = pd.read_csv(
+        input_file_path,
+        na_filter=False,
+        skip_blank_lines=True,
     )
-
     utils.column_is_int(nhsbt_df, "UKTR_ID")
 
     nhsbt_number_of_columns = nhsbt_df.shape[1]
@@ -397,6 +392,7 @@ def main():
     """
     input_file_path = utils.get_input_file_path(args.directory)
     audit_file_path = os.path.join(args.directory, "audit.xlsx")
+    utils.clean_csv(input_file_path)
     session = utils.create_session()
     nhsbt_import(input_file_path, audit_file_path, session)
     if args.commit:

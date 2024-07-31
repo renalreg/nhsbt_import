@@ -37,7 +37,11 @@ import logging
 import logging.config
 import os
 import sys
+import re
+import csv
 from typing import Optional, Union, Any
+
+from tqdm import tqdm
 
 import pandas as pd
 from dateutil.parser import parse
@@ -145,6 +149,28 @@ def check_missing_transplants(session: Session, file_data: list[str]) -> list[st
     db_data = [result[0] for result in results]
 
     return list(set(db_data) - set(file_data))
+
+
+def clean_cell_value(cell_value):
+    if isinstance(cell_value, str):
+        return re.sub(r"[^\x00-\x7F]", "", cell_value.replace("\x00", ""))
+    return cell_value
+
+
+def clean_csv(input_filename):
+    with open(input_filename, newline="", encoding="utf-8", errors="replace") as infile:
+        reader = csv.reader(infile)
+        rows = list(reader)
+
+        cleaned_rows = []
+        for row in tqdm(rows, desc="Cleaning null bytes and ASCII"):
+            cleaned_row = [clean_cell_value(cell) for cell in row]
+            cleaned_rows.append(cleaned_row)
+
+    with open(input_filename, "w", newline="", encoding="utf-8") as outfile:
+        writer = csv.writer(outfile)
+        for cleaned_row in tqdm(cleaned_rows, desc="Writing rows"):
+            writer.writerow(cleaned_row)
 
 
 def compare_patients(
@@ -893,29 +919,29 @@ def make_transplant_match_row(
         transplant_row["Registration Date - RR"] = (
             format_date(existing_transplant.registration_date, strip_time=True),
         )
-        transplant_row[
-            "Registration Date Type - RR"
-        ] = existing_transplant.registration_date_type
+        transplant_row["Registration Date Type - RR"] = (
+            existing_transplant.registration_date_type
+        )
         transplant_row["Registration End Date - RR"] = (
             format_date(existing_transplant.registration_end_date, strip_time=True),
         )
-        transplant_row[
-            "Registration End Status - RR"
-        ] = existing_transplant.registration_end_status
-        transplant_row[
-            "Transplant Consideration - RR"
-        ] = existing_transplant.transplant_consideration
-        transplant_row[
-            "Transplant Dialysis - RR"
-        ] = existing_transplant.transplant_dialysis
-        transplant_row[
-            "Transplant Relationship - RR"
-        ] = existing_transplant.transplant_relationship
+        transplant_row["Registration End Status - RR"] = (
+            existing_transplant.registration_end_status
+        )
+        transplant_row["Transplant Consideration - RR"] = (
+            existing_transplant.transplant_consideration
+        )
+        transplant_row["Transplant Dialysis - RR"] = (
+            existing_transplant.transplant_dialysis
+        )
+        transplant_row["Transplant Relationship - RR"] = (
+            existing_transplant.transplant_relationship
+        )
         transplant_row["Transplant Sex - RR"] = existing_transplant.transplant_sex
         transplant_row["Cause of Failure - RR"] = existing_transplant.cause_of_failure
-        transplant_row[
-            "Cause of Failure Text - RR"
-        ] = existing_transplant.cause_of_failure_text
+        transplant_row["Cause of Failure Text - RR"] = (
+            existing_transplant.cause_of_failure_text
+        )
         transplant_row["CIT Mins - RR"] = existing_transplant.cit_mins
         transplant_row["HLA Mismatch - RR"] = existing_transplant.hla_mismatch
         transplant_row["UKT Suspension - RR"] = existing_transplant.ukt_suspension
@@ -998,28 +1024,3 @@ def update_nhsbt_transplant(
     existing_transplant.cit_mins = incoming_transplant.cit_mins
     existing_transplant.hla_mismatch = incoming_transplant.hla_mismatch
     existing_transplant.ukt_suspension = incoming_transplant.ukt_suspension
-
-
-def nhsbt_clean(unclean_df: pd.DataFrame):
-    """
-    Clean the NHSBT file
-    Checks that there are no NULL bytes and replace with blanks
-    Filter out Unicode characters like apostrophes in "St George's", replace with blanks
-    Args:
-    unclean_df: pd.DataFrame containing the dataframe to be cleaned
-    Returns:
-    pd.DataFrame containing the cleaned dataframe
-    """
-    null_byte_regex = r"\x00"
-    unicode_regex = r"[^\x00-\x7F]+"
-
-    # List of columns that do not contain 'date' or 'dob' in their names
-
-    # Apply replacements only to the identified columns
-    clean_df = unclean_df.copy()
-    for col in unclean_df.columns:
-        clean_df[col] = clean_df[col].replace(
-            to_replace=[null_byte_regex, unicode_regex], value="", regex=True
-        )
-
-    return clean_df
