@@ -254,17 +254,6 @@ def test_create_df():
     assert df.empty
 
 
-def test_clean_dataframe():
-    data = {"text_ID": ["Hello", "World", "St George's", "Null\x00Byte"]}
-    data_cleaned = {"text_ID": ["Hello", "World", "St Georges", "NullByte"]}
-    df = pd.DataFrame(data)
-
-    cleaned_df = utils.nhsbt_clean(df)
-    print(cleaned_df)
-
-    assert cleaned_df.equals(pd.DataFrame(data_cleaned))  # Compare DataFrames
-
-
 def test_create_incoming_patient_valid_input():
     fake_date = fake.date()
     row = {
@@ -317,6 +306,8 @@ def test_create_incoming_patient_invalid_uktr_id():
 
 
 def test_create_incoming_transplant():
+    # This test fails sometimes, I suspect it's to do with the changes
+    # to boolean for the uktr_suspension I saw in a previous commit
     row = pd.Series(
         {
             "uktr_tx_id1": fake.random_number(digits=4),
@@ -368,7 +359,7 @@ def test_create_incoming_transplant():
     assert isinstance(result.cause_of_failure_text, (str, type(None)))
     assert isinstance(result.cit_mins, (str, type(None)))
     assert isinstance(result.hla_mismatch, (str, type(None)))
-    assert result.ukt_suspension in ("1", "0", None)
+    assert result.ukt_suspension in (True, False, None)
 
 
 def test_create_logs(mocker):

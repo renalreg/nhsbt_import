@@ -24,6 +24,7 @@ Returns:
 """
 
 import os
+import warnings
 from typing import Optional
 
 import pandas as pd
@@ -35,11 +36,10 @@ from sqlalchemy.orm import Session
 from ukrr_models.nhsbt_models import UKTPatient, UKTTransplant  # type: ignore [import]
 from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore [import]
 
-from nhsbt_import.df_columns import df_columns
 from nhsbt_import import utils
-from nhsbt_import.utils import nhsbt_clean
+from nhsbt_import.df_columns import df_columns
 
-
+warnings.simplefilter(action="ignore", category=FutureWarning)
 args = utils.args_parse()
 log = utils.create_logs(args.directory)
 
@@ -168,14 +168,12 @@ def import_transplants(
         )
         registration_ids.append(incoming_transplant.registration_id)
         # If len == 1 transplant exists, check if update is required
-        if (
-            len(
-                results := session.query(UKTTransplant)
-                .filter_by(registration_id=incoming_transplant.registration_id)
-                .all()
-            )
-            == 1
-        ):
+        results = (
+            session.query(UKTTransplant)
+            .filter_by(registration_id=incoming_transplant.registration_id)
+            .all()
+        )
+        if len(results) == 1:
             log.info(
                 "Registration ID %s found in database",
                 incoming_transplant.registration_id,
@@ -223,6 +221,7 @@ def import_transplants(
 
 
 def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
+    # THIS IS NOW BREAKING PYLINT BECAUSE IT'S TOO LONG
     """
     Reads in the NHSBT file and builds all the output dataframes. Uses import_patients()
     and import_transplants to import the data to the database and build the out puts. Runs
@@ -246,14 +245,11 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
     expected_number_of_columns = 125
     ###################################
 
-    nhsbt_df = nhsbt_clean(
-        pd.read_csv(
-            input_file_path,
-            na_filter=False,
-            skip_blank_lines=True,
-        )
+    nhsbt_df = pd.read_csv(
+        input_file_path,
+        na_filter=False,
+        skip_blank_lines=True,
     )
-
     utils.column_is_int(nhsbt_df, "UKTR_ID")
 
     nhsbt_number_of_columns = nhsbt_df.shape[1]
@@ -278,52 +274,60 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
     file_uktssas = nhsbt_df["UKTR_ID"].tolist()
 
     if missing_uktssa := utils.check_missing_patients(session, file_uktssas):
-        missing_patients = [
-            session.query(UKTPatient).filter_by(uktssa_no=uktssa).first()
-            for uktssa in missing_uktssa
-        ]
+        missing_patients = batch_query(
+            missing_uktssa, session, UKTPatient, UKTPatient.uktssa_no
+        )
 
-        patient_data = [
-            utils.make_missing_patient_row("Missing", missing_patient)
-            for missing_patient in missing_patients
-        ]
-        output_dfs["missing_patients"] = output_dfs["missing_patients"].concat(
-            patient_data, ignore_index=True
+        patient_data = pd.DataFrame(
+            [
+                utils.make_missing_patient_row("Missing", missing_patient)
+                for missing_patient in missing_patients
+            ]
+        )
+
+        output_dfs["missing_patients"] = pd.concat(
+            [output_dfs["missing_patients"], patient_data], axis=0, ignore_index=True
         )  # type: ignore [operator]
 
     if missing_transplants_ids := utils.check_missing_transplants(
         session, registration_ids
     ):
-        missing_transplants = [
-            session.query(UKTTransplant)
-            .filter_by(registration_id=transplant_id)
-            .first()
-            for transplant_id in missing_transplants_ids
-        ]
+        missing_transplants = batch_query(
+            missing_transplants_ids,
+            session,
+            UKTTransplant,
+            UKTTransplant.registration_id,
+        )
 
-        transplant_data = [
-            utils.make_missing_transplant_match_row(missing_transplant)
-            for missing_transplant in missing_transplants
-        ]
+        transplant_dataframe = pd.DataFrame(
+            [
+                utils.make_missing_transplant_match_row(missing_transplant)
+                for missing_transplant in missing_transplants
+            ]
+        )
 
-        output_dfs["missing_transplants"] = output_dfs["missing_transplants"].concat(
-            transplant_data, ignore_index=True
-        )  # type: ignore [operator]
+        output_dfs["missing_transplants"] = pd.concat(
+            [output_dfs["missing_transplants"], transplant_dataframe],
+            axis=0,
+            ignore_index=True,
+        )
 
     if deleted_uktssa := utils.deleted_patient_check(session, file_uktssas):
-        deleted_patients = [
-            session.query(UKRR_Deleted_Patient).filter_by(uktssa_no=uktssa).first()
-            for uktssa in deleted_uktssa
-        ]
+        deleted_patients = batch_query(
+            deleted_uktssa,
+            session,
+            UKRR_Deleted_Patient,
+            UKRR_Deleted_Patient.uktssa_no,
+        )
 
-        deleted_data = [
+        deleted_data = pd.DataFrame(
             utils.make_deleted_patient_row("Deleted", deleted_patient)
             for deleted_patient in deleted_patients
-        ]
+        )
 
-        output_dfs["deleted_patients"] = output_dfs["deleted_patients"].concat(
-            deleted_data, ignore_index=True
-        )  # type: ignore [operator]
+        output_dfs["deleted_patients"] = pd.concat(
+            [output_dfs["deleted_patients"], deleted_data], axis=0, ignore_index=True
+        )
 
     wb = Workbook()
     wb.remove(wb["Sheet"])
@@ -358,6 +362,27 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
         wb.save(audit_file_path)
 
 
+def batch_query(keys, session, query, key_filter):
+    """
+    Batch query function
+    Args:
+        keys: list of values to filter for
+        session: sqlachemy session
+        query: sqlachemy orm to query
+        key_filter: sqlachemy orm column to filter on
+
+    Returns:
+        results: list of query results
+    """
+    results = []
+    batch_size = 1000
+    for i in range(0, len(keys), batch_size):
+        batch = keys[i : i + batch_size]
+        batch_results = session.query(query).filter(key_filter.in_(batch)).all()
+        results.extend(batch_results)
+    return results
+
+
 def main():
     """
     Main function for the script. Creates a session, gets the input file path, creates
@@ -367,6 +392,7 @@ def main():
     """
     input_file_path = utils.get_input_file_path(args.directory)
     audit_file_path = os.path.join(args.directory, "audit.xlsx")
+    utils.clean_csv(input_file_path)
     session = utils.create_session()
     nhsbt_import(input_file_path, audit_file_path, session)
     if args.commit:

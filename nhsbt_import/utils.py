@@ -30,22 +30,27 @@ Functions:
     update_nhsbt_transplant(incoming_transplant, existing_transplant): Updates an existing transplant
     nhsbt_clean(unclean_dataframe): Cleans up the dataframe
 """
+
 import argparse
+import datetime
 import logging
 import logging.config
 import os
 import sys
-import datetime
-from typing import Optional, Any, Union
+import re
+import csv
+from typing import Optional, Union, Any
+
+from tqdm import tqdm
 
 import pandas as pd
 from dateutil.parser import parse
+from openpyxl import Workbook
+from openpyxl.styles.fills import PatternFill
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from ukrr_models.nhsbt_models import UKTPatient, UKTTransplant  # type: ignore [import]
 from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore [import]
-from openpyxl.styles.fills import PatternFill
-from openpyxl import Workbook
 
 log = logging.getLogger(__name__)
 
@@ -146,6 +151,28 @@ def check_missing_transplants(session: Session, file_data: list[str]) -> list[st
     return list(set(db_data) - set(file_data))
 
 
+def clean_cell_value(cell_value):
+    if isinstance(cell_value, str):
+        return re.sub(r"[^\x00-\x7F]", "", cell_value.replace("\x00", ""))
+    return cell_value
+
+
+def clean_csv(input_filename):
+    with open(input_filename, newline="", encoding="utf-8", errors="replace") as infile:
+        reader = csv.reader(infile)
+        rows = list(reader)
+
+        cleaned_rows = []
+        for row in tqdm(rows, desc="Cleaning null bytes and ASCII"):
+            cleaned_row = [clean_cell_value(cell) for cell in row]
+            cleaned_rows.append(cleaned_row)
+
+    with open(input_filename, "w", newline="", encoding="utf-8") as outfile:
+        writer = csv.writer(outfile)
+        for cleaned_row in tqdm(cleaned_rows, desc="Writing rows"):
+            writer.writerow(cleaned_row)
+
+
 def compare_patients(
     incoming_patient: UKTPatient, existing_patient: UKTPatient
 ) -> bool:
@@ -181,7 +208,7 @@ def compare_patients(
 
 
 def compare_transplants(
-    incoming_transplant: UKTPatient, existing_transplant: UKTPatient
+    incoming_transplant: UKTTransplant, existing_transplant: UKTTransplant
 ) -> bool:
     """
     Compares incoming and existing transplant data.
@@ -292,8 +319,6 @@ def column_is_int(df: pd.DataFrame, column: str):
     """
     df[column] = pd.to_numeric(df[column], errors="coerce")
     if df[column].isna().any():
-        problem_indices = df[column].index[df[column]]
-        print(problem_indices)
         log.error("UKTR ID column contains blanks or non-numbers")
         raise ValueError("UKTR ID column contains blanks or non-numbers")
 
@@ -368,6 +393,7 @@ def create_incoming_transplant(
     Returns:
         UKTTransplant: A UKTTransplant object containing the transplant data
     """
+    tx_unit = format_str(row[f"uktr_tx_unit{transplant_counter}"])
 
     return UKTTransplant(
         transplant_id=format_int(row[f"uktr_tx_id{transplant_counter}"]),
@@ -375,7 +401,7 @@ def create_incoming_transplant(
         transplant_date=format_date(row[f"uktr_txdate{transplant_counter}"]),
         transplant_type=format_str(row[f"uktr_dgrp{transplant_counter}"]),
         transplant_organ=format_str(row[f"uktr_tx_type{transplant_counter}"]),
-        transplant_unit=format_str(row[f"uktr_tx_unit{transplant_counter}"]),
+        transplant_unit=None if tx_unit == "" else tx_unit,
         ukt_fail_date=format_date(row[f"uktr_faildate{transplant_counter}"]),
         rr_no=None,
         registration_id=f'{format_int(row["UKTR_ID"])}_{transplant_counter}',
@@ -397,9 +423,7 @@ def create_incoming_transplant(
         ),
         cit_mins=format_str(row[f"uktr_cit_mins{transplant_counter}"]),
         hla_mismatch=format_str(row[f"uktr_hla_mm{transplant_counter}"]),
-        ukt_suspension=format_str(
-            format_int(row[f"uktr_suspension_{transplant_counter}"])
-        ),
+        ukt_suspension=format_bool(row[f"uktr_suspension_{transplant_counter}"]),
     )
 
 
@@ -493,12 +517,13 @@ def find_differences(row: tuple):
     Returns:
         Dict: The differing values
     """
+
     sliced_row = row[3:]
     last_index = len(sliced_row) - 1
     differences = {}
     while last_index > 0:
         first_index, second_index = last_index, last_index - 1
-        if sliced_row[first_index] != sliced_row[second_index]:
+        if str(sliced_row[first_index]) != str(sliced_row[second_index]):
             differences[first_index + 4] = second_index + 4
         last_index -= 2
 
@@ -879,7 +904,7 @@ def make_transplant_match_row(
         "Cause of Failure Text - NHSBT": incoming_transplant.cause_of_failure_text,
         "CIT Mins - NHSBT": incoming_transplant.cit_mins,
         "HLA Mismatch - NHSBT": incoming_transplant.hla_mismatch,
-        "UKT Suspension - NHSBT": format_bool(incoming_transplant.ukt_suspension),
+        "UKT Suspension - NHSBT": incoming_transplant.ukt_suspension,
     }
 
     if existing_transplant:
@@ -894,34 +919,32 @@ def make_transplant_match_row(
         transplant_row["Registration Date - RR"] = (
             format_date(existing_transplant.registration_date, strip_time=True),
         )
-        transplant_row[
-            "Registration Date Type - RR"
-        ] = existing_transplant.registration_date_type
+        transplant_row["Registration Date Type - RR"] = (
+            existing_transplant.registration_date_type
+        )
         transplant_row["Registration End Date - RR"] = (
             format_date(existing_transplant.registration_end_date, strip_time=True),
         )
-        transplant_row[
-            "Registration End Status - RR"
-        ] = existing_transplant.registration_end_status
-        transplant_row[
-            "Transplant Consideration - RR"
-        ] = existing_transplant.transplant_consideration
-        transplant_row[
-            "Transplant Dialysis - RR"
-        ] = existing_transplant.transplant_dialysis
-        transplant_row[
-            "Transplant Relationship - RR"
-        ] = existing_transplant.transplant_relationship
+        transplant_row["Registration End Status - RR"] = (
+            existing_transplant.registration_end_status
+        )
+        transplant_row["Transplant Consideration - RR"] = (
+            existing_transplant.transplant_consideration
+        )
+        transplant_row["Transplant Dialysis - RR"] = (
+            existing_transplant.transplant_dialysis
+        )
+        transplant_row["Transplant Relationship - RR"] = (
+            existing_transplant.transplant_relationship
+        )
         transplant_row["Transplant Sex - RR"] = existing_transplant.transplant_sex
         transplant_row["Cause of Failure - RR"] = existing_transplant.cause_of_failure
-        transplant_row[
-            "Cause of Failure Text - RR"
-        ] = existing_transplant.cause_of_failure_text
+        transplant_row["Cause of Failure Text - RR"] = (
+            existing_transplant.cause_of_failure_text
+        )
         transplant_row["CIT Mins - RR"] = existing_transplant.cit_mins
         transplant_row["HLA Mismatch - RR"] = existing_transplant.hla_mismatch
-        transplant_row["UKT Suspension - RR"] = format_bool(
-            existing_transplant.ukt_suspension
-        )
+        transplant_row["UKT Suspension - RR"] = existing_transplant.ukt_suspension
 
     return transplant_row
 
@@ -1001,23 +1024,3 @@ def update_nhsbt_transplant(
     existing_transplant.cit_mins = incoming_transplant.cit_mins
     existing_transplant.hla_mismatch = incoming_transplant.hla_mismatch
     existing_transplant.ukt_suspension = incoming_transplant.ukt_suspension
-
-
-def nhsbt_clean(unclean_df: pd.DataFrame):
-    """
-    Clean the NHSBT file
-    Checks that there are no NULL bytes and replace with blanks
-    Filter out Unicode characters like apostrophes in "St George's", replace with blanks
-    Args:
-    unclean_df: pd.DataFrame containing the dataframe to be cleaned
-    Returns:
-    pd.DataFrame containing the cleaned dataframe
-    """
-    null_byte_regex = r"\x00"
-    unicode_regex = r'[^\w\s]'
-    clean_df = unclean_df.replace(
-        to_replace=[null_byte_regex, unicode_regex],
-        value="",
-        regex=True,
-    )
-    return clean_df
