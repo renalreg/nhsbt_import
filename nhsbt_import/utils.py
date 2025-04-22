@@ -339,7 +339,10 @@ def create_df(name: str, columns: dict[str, list[str]]) -> pd.DataFrame:
     return pd.DataFrame(columns=columns[name])
 
 
-def validate_and_correct(row):
+def validate_and_correct_nhs_numbers(row)-> pd.Series:
+    """
+   Validates and corrects the NHS numbers in the provided row of data.
+    """
     invalids = validate_numbers(row)
 
     if invalids and any([i[1] for i in invalids]):
@@ -427,7 +430,7 @@ def create_incoming_patient(index: int, row: pd.Series) -> UKTPatient:
         log.error(message)
         raise ValueError(message)
 
-    row = validate_and_correct(row)
+    row = validate_and_correct_nhs_numbers(row)
     if postcode := format_postcode(row["UKTR_RPOSTCODE"]):
         if len(postcode) < 2 or len(postcode) > 8:
             log.warning("Postcode length error on row %s: %s", index, postcode)
