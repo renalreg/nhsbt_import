@@ -33,8 +33,8 @@ from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.dataframe import dataframe_to_rows
 from sqlalchemy.orm import Session
-from ukrr_models.nhsbt_models import UKTPatient, UKTTransplant  # type: ignore [import]
-from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore [import]
+from ukrr_models.nhsbt_models import UKTPatient, UKTTransplant  # type: ignore
+from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore
 
 from nhsbt_import import utils
 from nhsbt_import.df_columns import df_columns

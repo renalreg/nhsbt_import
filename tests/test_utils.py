@@ -4,12 +4,14 @@ import sys
 import datetime
 from io import StringIO
 
+import nhs_number
 import pandas as pd
 import pytest
 from faker import Faker
+from parameterized import parameterized
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from ukrr_models import nhsbt_models, rr_models  # type: ignore [import]
+from ukrr_models import nhsbt_models, rr_models  # type: ignore
 
 from nhsbt_import import utils
 
@@ -254,7 +256,56 @@ def test_create_df():
     assert df.empty
 
 
-def test_create_incoming_patient_valid_input():
+gen_nhs_no = int(nhs_number.generate(for_region=nhs_number.REGION_ENGLAND)[0])
+gen_chi_no = int(nhs_number.generate(for_region=nhs_number.REGION_SCOTLAND)[0])
+gen_hsc_no = int(nhs_number.generate(for_region=nhs_number.REGION_NORTHERN_IRELAND)[0])
+
+
+@pytest.mark.parametrize(
+    "nhs_no, chi_no, hsc_no",
+    [
+        (None, gen_chi_no, gen_chi_no),
+        (gen_nhs_no, None, None),
+        (gen_chi_no, None, None),
+        (gen_hsc_no, None, None),
+        (None, gen_chi_no, None),
+        (None, gen_nhs_no, None),
+        (None, gen_hsc_no, None),
+        (None, None, gen_hsc_no),
+        (None, None, gen_nhs_no),
+        (None, None, gen_chi_no),
+        (gen_nhs_no, gen_chi_no, None),
+        (gen_chi_no, gen_nhs_no, None),
+        (gen_nhs_no, None, gen_hsc_no),
+        (gen_hsc_no, None, gen_nhs_no),
+        (None, gen_chi_no, gen_hsc_no),
+        (None, gen_hsc_no, gen_chi_no),
+        (gen_nhs_no, gen_chi_no, gen_hsc_no),
+        (gen_chi_no, gen_nhs_no, gen_hsc_no),
+        (gen_hsc_no, gen_chi_no, gen_nhs_no),
+    ],
+    ids=[
+        "multiple", "test_only_nhs_correct_pos",
+        "test_only_chi_in_nhs_pos",
+        "test_only_hsc_in_nhs_pos",
+        "test_only_chi_correct_pos",
+        "test_only_nhs_in_chi_pos",
+        "test_only_hsc_in_chi_pos",
+        "test_only_hsc_correct_pos",
+        "test_only_nhs_in_hsc_pos",
+        "test_only_chi_in_hsc_pos",
+        "test_nhs_and_chi_correct",
+        "test_chi_and_nhs_swapped",
+        "test_nhs_and_hsc_correct",
+        "test_hsc_and_nhs_swapped",
+        "test_chi_and_hsc_correct",
+        "test_hsc_and_chi_swapped",
+        "test_all_correct_order",
+        "test_all_swapped_1",
+        "test_all_swapped_2",
+    ],
+)
+def test_create_incoming_patient_valid_input(nhs_no, chi_no, hsc_no):
     fake_date = fake.date()
     row = {
         "UKTR_ID": fake.random_int(),
@@ -262,9 +313,9 @@ def test_create_incoming_patient_valid_input():
         "UKTR_RFORENAME": fake.first_name(),
         "UKTR_RSEX": fake.random_element(elements=("1", "2")),
         "UKTR_RPOSTCODE": fake.pystr_format(string_format="??## #??").upper(),
-        "UKTR_RNHS_NO": fake.random_number(digits=10),
-        "UKTR_RCHI_NO_NI": fake.random_number(digits=8),
-        "UKTR_RCHI_NO_SCOT": fake.random_number(digits=10),
+        "UKTR_RNHS_NO": nhs_no,
+        "UKTR_RCHI_NO_NI": hsc_no,
+        "UKTR_RCHI_NO_SCOT": chi_no,
         "UKTR_DDATE": fake_date,
         "UKTR_RDOB": fake_date,
     }
@@ -283,6 +334,13 @@ def test_create_incoming_patient_valid_input():
     assert patient.rr_no is None
     assert isinstance(patient.ukt_date_death, (datetime.date, type(None)))
     assert isinstance(patient.ukt_date_birth, (datetime.date, type(None)))
+
+    if patient.hsc_no:
+        assert patient.hsc_no == int(gen_hsc_no)
+    if patient.new_nhs_no:
+        assert patient.new_nhs_no == int(gen_nhs_no)
+    if patient.chi_no:
+        assert patient.chi_no == int(gen_chi_no)
 
 
 def test_create_incoming_patient_invalid_uktr_id():
