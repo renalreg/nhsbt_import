@@ -285,7 +285,8 @@ gen_hsc_no = int(nhs_number.generate(for_region=nhs_number.REGION_NORTHERN_IRELA
         (gen_hsc_no, gen_chi_no, gen_nhs_no),
     ],
     ids=[
-        "multiple", "test_only_nhs_correct_pos",
+        "multiple",
+        "test_only_nhs_correct_pos",
         "test_only_chi_in_nhs_pos",
         "test_only_hsc_in_nhs_pos",
         "test_only_chi_correct_pos",

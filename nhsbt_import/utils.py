@@ -41,8 +41,8 @@ import re
 import csv
 from typing import Optional, Union, Any
 
-import nhs_number # type:ignore
-from nhs_number import NhsNumber # type:ignore
+import nhs_number  # type:ignore
+from nhs_number import NhsNumber  # type:ignore
 from tqdm import tqdm
 
 import pandas as pd
@@ -377,10 +377,10 @@ def validate_and_correct(row):
 
 def validate_numbers(row):
     nhs_no = NhsNumber(str(row["UKTR_RNHS_NO"])) if row["UKTR_RNHS_NO"] else None
-    chi_no = NhsNumber(str(row["UKTR_RCHI_NO_SCOT"])) if row["UKTR_RCHI_NO_SCOT"] else None
-    hsc_no = (
-        NhsNumber(str(row["UKTR_RCHI_NO_NI"])) if row["UKTR_RCHI_NO_NI"] else None
+    chi_no = (
+        NhsNumber(str(row["UKTR_RCHI_NO_SCOT"])) if row["UKTR_RCHI_NO_SCOT"] else None
     )
+    hsc_no = NhsNumber(str(row["UKTR_RCHI_NO_NI"])) if row["UKTR_RCHI_NO_NI"] else None
     validations = [
         ("UKTR_RNHS_NO", nhs_no, nhs_number.REGION_ENGLAND, row["UKTR_RNHS_NO"]),
         (
