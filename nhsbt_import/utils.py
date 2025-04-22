@@ -339,7 +339,7 @@ def create_df(name: str, columns: dict[str, list[str]]) -> pd.DataFrame:
     return pd.DataFrame(columns=columns[name])
 
 
-def validate_and_correct_nhs_numbers(row)-> pd.Series:
+def validate_and_correct_nhs_numbers(row,row_index)-> pd.Series:
     """
    Validates and corrects the NHS numbers in the provided row of data.
     """
@@ -362,7 +362,9 @@ def validate_and_correct_nhs_numbers(row)-> pd.Series:
                 case nhs_number.REGION_SCOTLAND:
                     old_index = "UKTR_RCHI_NO_SCOT"
                 case _:
-                    raise ValueError("region error")
+                    message = f"invalid number provided and can not be converted to region, check row {row_index}"
+                    log.error(message)
+                    raise ValueError(message)
 
             swappable[old_index] = original_number  # this avoids int conversions
 
@@ -373,7 +375,9 @@ def validate_and_correct_nhs_numbers(row)-> pd.Series:
 
         invalids = validate_numbers(row)
         if any([i[1] for i in invalids]):
-            raise ValueError("region error")
+            message = f"invalid number provided must be a valid number, check row {row_index}"
+            log.error(message)
+            raise ValueError(message)
 
     return row
 
@@ -430,7 +434,7 @@ def create_incoming_patient(index: int, row: pd.Series) -> UKTPatient:
         log.error(message)
         raise ValueError(message)
 
-    row = validate_and_correct_nhs_numbers(row)
+    row = validate_and_correct_nhs_numbers(row,index+1)
     if postcode := format_postcode(row["UKTR_RPOSTCODE"]):
         if len(postcode) < 2 or len(postcode) > 8:
             log.warning("Postcode length error on row %s: %s", index, postcode)
