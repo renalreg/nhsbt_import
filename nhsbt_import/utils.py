@@ -41,6 +41,8 @@ import re
 import csv
 from typing import Optional, Union, Any
 
+import nhs_number  # type:ignore
+from nhs_number import NhsNumber  # type:ignore
 from tqdm import tqdm
 
 import pandas as pd
@@ -49,8 +51,8 @@ from openpyxl import Workbook
 from openpyxl.styles.fills import PatternFill
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from ukrr_models.nhsbt_models import UKTPatient, UKTTransplant  # type: ignore [import]
-from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore [import]
+from ukrr_models.nhsbt_models import UKTPatient, UKTTransplant  # type: ignore
+from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore
 
 log = logging.getLogger(__name__)
 
@@ -337,6 +339,83 @@ def create_df(name: str, columns: dict[str, list[str]]) -> pd.DataFrame:
     return pd.DataFrame(columns=columns[name])
 
 
+def validate_and_correct_nhs_numbers(row, row_index) -> pd.Series:
+    """
+    Validates and corrects the NHS numbers in the provided row of data.
+    """
+    invalids = validate_numbers(row)
+
+    if invalids and any([i[1] for i in invalids]):
+        swappable = {
+            "UKTR_RNHS_NO": None,
+            "UKTR_RCHI_NO_NI": None,
+            "UKTR_RCHI_NO_SCOT": None,
+        }
+        for index, number, region, original_number in invalids:
+            if number is None:
+                continue
+            match number.region:
+                case nhs_number.REGION_ENGLAND:
+                    old_index = "UKTR_RNHS_NO"
+                case nhs_number.REGION_NORTHERN_IRELAND:
+                    old_index = "UKTR_RCHI_NO_NI"
+                case nhs_number.REGION_SCOTLAND:
+                    old_index = "UKTR_RCHI_NO_SCOT"
+                case _:
+                    message = f"invalid number provided and can not be converted to region, check row {row_index}"
+                    log.error(message)
+                    raise ValueError(message)
+
+            swappable[old_index] = original_number  # this avoids int conversions
+
+        for index, value in swappable.items():
+            if value:
+                value = int(value)
+            row[index] = value
+
+        invalids = validate_numbers(row)
+        if any([i[1] for i in invalids]):
+            message = (
+                f"invalid number provided must be a valid number, check row {row_index}"
+            )
+            log.error(message)
+            raise ValueError(message)
+
+    return row
+
+
+def validate_numbers(row):
+    nhs_no = NhsNumber(str(row["UKTR_RNHS_NO"])) if row["UKTR_RNHS_NO"] else None
+    chi_no = (
+        NhsNumber(str(row["UKTR_RCHI_NO_SCOT"])) if row["UKTR_RCHI_NO_SCOT"] else None
+    )
+    hsc_no = NhsNumber(str(row["UKTR_RCHI_NO_NI"])) if row["UKTR_RCHI_NO_NI"] else None
+    validations = [
+        ("UKTR_RNHS_NO", nhs_no, nhs_number.REGION_ENGLAND, row["UKTR_RNHS_NO"]),
+        (
+            "UKTR_RCHI_NO_NI",
+            hsc_no,
+            nhs_number.REGION_NORTHERN_IRELAND,
+            row["UKTR_RCHI_NO_NI"],
+        ),
+        (
+            "UKTR_RCHI_NO_SCOT",
+            chi_no,
+            nhs_number.REGION_SCOTLAND,
+            row["UKTR_RCHI_NO_SCOT"],
+        ),
+    ]
+    invalids = []
+    for index, number, region, original_value in validations:
+        if number is None:
+            invalids.append((index, number, region, original_value))
+        elif number.region != region:
+            invalids.append((index, number, region, original_value))
+        else:
+            pass
+    return invalids
+
+
 def create_incoming_patient(index: int, row: pd.Series) -> UKTPatient:
     """
     Creates an incoming patient object
@@ -357,6 +436,7 @@ def create_incoming_patient(index: int, row: pd.Series) -> UKTPatient:
         log.error(message)
         raise ValueError(message)
 
+    row = validate_and_correct_nhs_numbers(row, index + 1)
     if postcode := format_postcode(row["UKTR_RPOSTCODE"]):
         if len(postcode) < 2 or len(postcode) > 8:
             log.warning("Postcode length error on row %s: %s", index, postcode)
@@ -501,7 +581,7 @@ def deleted_patient_check(session: Session, file_patients: list[str]) -> list[st
     Returns:
         list[str]: a list of patient identifiers that have been deleted
     """
-    results = session.query(UKRR_Deleted_Patient.uktssa_no).all()
+    results = session.query(UKRR_Deleted_Patient.UKTSSA_NO).all()
     db_patients = {result[0] for result in results}
 
     return list(db_patients.intersection(set(file_patients)))
@@ -722,7 +802,7 @@ def make_deleted_patient_row(
     # TODO: [NHSBT-8] Add the other columns CHI etc
     return {
         "Match Type": match_type,
-        "UKTSSA_No": deleted_patient.uktssa_no,
+        "UKTSSA_No": deleted_patient.UKTSSA_NO,
         "RR_No": deleted_patient.rr_no,
         "Surname - RR": deleted_patient.surname,
         "Forename - RR": deleted_patient.forename,

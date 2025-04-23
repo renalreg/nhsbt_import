@@ -4,16 +4,18 @@ import sys
 import datetime
 from io import StringIO
 
+import nhs_number
 import pandas as pd
 import pytest
 from faker import Faker
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from ukrr_models import nhsbt_models, rr_models  # type: ignore [import]
+from ukrr_models import nhsbt_models, rr_models  # type: ignore
 
 from nhsbt_import import utils
 
 fake = Faker()
+Faker.seed(1)
 
 
 @pytest.fixture
@@ -206,7 +208,21 @@ def test_check_missing_patients(nhsbt_session: Session):
     file_data = [12345, 67890, 99999]
 
     for uktssa_no in db_data:
-        nhsbt_session.add(nhsbt_models.UKTPatient(uktssa_no=uktssa_no))
+        nhsbt_session.add(
+            nhsbt_models.UKTPatient(
+                uktssa_no=uktssa_no,
+                surname="TestSurname",
+                forename="TestForename",
+                sex="M",
+                post_code="AB12CD",
+                new_nhs_no=1234567890,
+                chi_no=9876543210,
+                hsc_no=1111111111,
+                rr_no=2222222222,
+                ukt_date_death=datetime.datetime(2020, 1, 1),
+                ukt_date_birth=datetime.datetime(1980, 1, 1),
+            )
+        )
     nhsbt_session.commit()
 
     missing_patients = utils.check_missing_patients(nhsbt_session, file_data)
@@ -218,8 +234,34 @@ def test_check_missing_transplants(nhsbt_session: Session):
     db_data = ["100_1", "100_2", "100_3"]
     file_data = ["100_1", "100_2", "100_4"]
 
-    for registration_id in db_data:
-        nhsbt_session.add(nhsbt_models.UKTTransplant(registration_id=registration_id))
+    for idx, registration_id in enumerate(db_data):
+        nhsbt_session.add(
+            nhsbt_models.UKTTransplant(
+                registration_id=registration_id,
+                uktssa_no=1000 + idx,
+                transplant_id=2000 + idx,
+                transplant_type="TypeA",
+                transplant_organ="Kidney",
+                transplant_unit="UnitX",
+                rr_no=3000 + idx,
+                transplant_date=datetime.datetime(2020, 1, 1),
+                ukt_fail_date=datetime.datetime(2021, 1, 1),
+                registration_date=datetime.datetime(2019, 1, 1),
+                registration_date_type="Original",
+                registration_end_date=datetime.datetime(2022, 1, 1),
+                registration_end_status="Completed",
+                transplant_consideration="Standard",
+                transplant_dialysis="Yes",
+                transplant_relationship="None",
+                transplant_sex="M",
+                cause_of_failure="A01",
+                cause_of_failure_text="Rejection",
+                cit_mins="120",
+                hla_mismatch="2",
+                ukt_suspension=False,
+            )
+        )
+
     nhsbt_session.commit()
 
     missing_transplants = utils.check_missing_transplants(nhsbt_session, file_data)
@@ -254,7 +296,57 @@ def test_create_df():
     assert df.empty
 
 
-def test_create_incoming_patient_valid_input():
+gen_nhs_no = int(nhs_number.generate(for_region=nhs_number.REGION_ENGLAND)[0])
+gen_chi_no = int(nhs_number.generate(for_region=nhs_number.REGION_SCOTLAND)[0])
+gen_hsc_no = int(nhs_number.generate(for_region=nhs_number.REGION_NORTHERN_IRELAND)[0])
+
+
+@pytest.mark.parametrize(
+    "nhs_no, chi_no, hsc_no",
+    [
+        (None, gen_chi_no, gen_chi_no),
+        (gen_nhs_no, None, None),
+        (gen_chi_no, None, None),
+        (gen_hsc_no, None, None),
+        (None, gen_chi_no, None),
+        (None, gen_nhs_no, None),
+        (None, gen_hsc_no, None),
+        (None, None, gen_hsc_no),
+        (None, None, gen_nhs_no),
+        (None, None, gen_chi_no),
+        (gen_nhs_no, gen_chi_no, None),
+        (gen_chi_no, gen_nhs_no, None),
+        (gen_nhs_no, None, gen_hsc_no),
+        (gen_hsc_no, None, gen_nhs_no),
+        (None, gen_chi_no, gen_hsc_no),
+        (None, gen_hsc_no, gen_chi_no),
+        (gen_nhs_no, gen_chi_no, gen_hsc_no),
+        (gen_chi_no, gen_nhs_no, gen_hsc_no),
+        (gen_hsc_no, gen_chi_no, gen_nhs_no),
+    ],
+    ids=[
+        "multiple",
+        "test_only_nhs_correct_pos",
+        "test_only_chi_in_nhs_pos",
+        "test_only_hsc_in_nhs_pos",
+        "test_only_chi_correct_pos",
+        "test_only_nhs_in_chi_pos",
+        "test_only_hsc_in_chi_pos",
+        "test_only_hsc_correct_pos",
+        "test_only_nhs_in_hsc_pos",
+        "test_only_chi_in_hsc_pos",
+        "test_nhs_and_chi_correct",
+        "test_chi_and_nhs_swapped",
+        "test_nhs_and_hsc_correct",
+        "test_hsc_and_nhs_swapped",
+        "test_chi_and_hsc_correct",
+        "test_hsc_and_chi_swapped",
+        "test_all_correct_order",
+        "test_all_swapped_1",
+        "test_all_swapped_2",
+    ],
+)
+def test_create_incoming_patient_valid_input(nhs_no, chi_no, hsc_no):
     fake_date = fake.date()
     row = {
         "UKTR_ID": fake.random_int(),
@@ -262,9 +354,9 @@ def test_create_incoming_patient_valid_input():
         "UKTR_RFORENAME": fake.first_name(),
         "UKTR_RSEX": fake.random_element(elements=("1", "2")),
         "UKTR_RPOSTCODE": fake.pystr_format(string_format="??## #??").upper(),
-        "UKTR_RNHS_NO": fake.random_number(digits=10),
-        "UKTR_RCHI_NO_NI": fake.random_number(digits=8),
-        "UKTR_RCHI_NO_SCOT": fake.random_number(digits=10),
+        "UKTR_RNHS_NO": nhs_no,
+        "UKTR_RCHI_NO_NI": hsc_no,
+        "UKTR_RCHI_NO_SCOT": chi_no,
         "UKTR_DDATE": fake_date,
         "UKTR_RDOB": fake_date,
     }
@@ -283,6 +375,13 @@ def test_create_incoming_patient_valid_input():
     assert patient.rr_no is None
     assert isinstance(patient.ukt_date_death, (datetime.date, type(None)))
     assert isinstance(patient.ukt_date_birth, (datetime.date, type(None)))
+
+    if patient.hsc_no:
+        assert patient.hsc_no == int(gen_hsc_no)
+    if patient.new_nhs_no:
+        assert patient.new_nhs_no == int(gen_nhs_no)
+    if patient.chi_no:
+        assert patient.chi_no == int(gen_chi_no)
 
 
 def test_create_incoming_patient_invalid_uktr_id():
@@ -409,8 +508,22 @@ def test_create_session():
 
 def test_deleted_patient_check(rr_session):
     mock_results = [(1,), (3,), (5,)]
-    for mock_result in mock_results:
-        rr_session.add(rr_models.UKRR_Deleted_Patient(uktssa_no=mock_result[0]))
+    for idx, (uk_tssa_no,) in enumerate(mock_results):
+        rr_session.add(
+            rr_models.UKRR_Deleted_Patient(
+                rr_no=1000 + idx,
+                surname=f"Surname{idx}",
+                forename=f"Forename{idx}",
+                sex="M",
+                nhs_no=9000000000 + idx,
+                chi_no=8000000000 + idx,
+                hsc_no=7000000000 + idx,
+                uk_tssa_no=uk_tssa_no,
+                local_hosp_no=f"HOSP{idx}",
+                date_birth=datetime.date(1980 + idx, 1, 1),
+                date_death=datetime.date(2020 + idx, 1, 1),
+            )
+        )
     rr_session.commit()
 
     file_patients = [1, 2, 3, 4, 5]
