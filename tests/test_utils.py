@@ -509,19 +509,21 @@ def test_create_session():
 def test_deleted_patient_check(rr_session):
     mock_results = [(1,), (3,), (5,)]
     for idx, (uk_tssa_no,) in enumerate(mock_results):
-        rr_session.add(rr_models.UKRR_Deleted_Patient(
-            rr_no=1000 + idx,
-            surname=f"Surname{idx}",
-            forename=f"Forename{idx}",
-            sex="M",
-            nhs_no=9000000000 + idx,
-            chi_no=8000000000 + idx,
-            hsc_no=7000000000 + idx,
-            uk_tssa_no=uk_tssa_no,
-            local_hosp_no=f"HOSP{idx}",
-            date_birth=datetime.date(1980 + idx, 1, 1),
-            date_death=datetime.date(2020 + idx, 1, 1),
-        ))
+        rr_session.add(
+            rr_models.UKRR_Deleted_Patient(
+                rr_no=1000 + idx,
+                surname=f"Surname{idx}",
+                forename=f"Forename{idx}",
+                sex="M",
+                nhs_no=9000000000 + idx,
+                chi_no=8000000000 + idx,
+                hsc_no=7000000000 + idx,
+                uk_tssa_no=uk_tssa_no,
+                local_hosp_no=f"HOSP{idx}",
+                date_birth=datetime.date(1980 + idx, 1, 1),
+                date_death=datetime.date(2020 + idx, 1, 1),
+            )
+        )
     rr_session.commit()
 
     file_patients = [1, 2, 3, 4, 5]
