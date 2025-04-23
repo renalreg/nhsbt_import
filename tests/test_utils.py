@@ -15,6 +15,7 @@ from ukrr_models import nhsbt_models, rr_models  # type: ignore
 from nhsbt_import import utils
 
 fake = Faker()
+Faker.seed(1)
 
 
 @pytest.fixture
