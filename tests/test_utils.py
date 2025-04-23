@@ -8,7 +8,6 @@ import nhs_number
 import pandas as pd
 import pytest
 from faker import Faker
-from parameterized import parameterized
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from ukrr_models import nhsbt_models, rr_models  # type: ignore
