@@ -579,7 +579,7 @@ def deleted_patient_check(session: Session, file_patients: list[str]) -> list[st
     Returns:
         list[str]: a list of patient identifiers that have been deleted
     """
-    results = session.query(UKRR_Deleted_Patient.uktssa_no).all()
+    results = session.query(UKRR_Deleted_Patient.UKTSSA_NO).all()
     db_patients = {result[0] for result in results}
 
     return list(db_patients.intersection(set(file_patients)))
@@ -800,7 +800,7 @@ def make_deleted_patient_row(
     # TODO: [NHSBT-8] Add the other columns CHI etc
     return {
         "Match Type": match_type,
-        "UKTSSA_No": deleted_patient.uktssa_no,
+        "UKTSSA_No": deleted_patient.UKTSSA_NO,
         "RR_No": deleted_patient.rr_no,
         "Surname - RR": deleted_patient.surname,
         "Forename - RR": deleted_patient.forename,
