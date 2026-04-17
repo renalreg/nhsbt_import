@@ -23,4 +23,5 @@ jobs:
       package_manager_command: "pip install poetry"
       install_command: "poetry install --no-interaction"
       test_command: "poetry run tox"
+      org_deps: true
 
