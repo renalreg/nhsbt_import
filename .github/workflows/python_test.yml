@@ -15,7 +15,7 @@ jobs:
         platform:
           - ubuntu-latest
           - windows-latest
-        python-version: ["3.11"]
+        python-version: ["3.12"]
 
     env:
       DIRECTORY_TO_SCAN: ./nhsbt_import

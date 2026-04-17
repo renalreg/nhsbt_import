@@ -8,12 +8,12 @@ readme = "README.md"
 packages = [{include = "nhsbt_import"}]
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.12,<3.14"
 pyyaml = "^6.0"
 sqlalchemy = "^2.0.6"
-pandas = "^1.5.3"
+pandas = "^2.0.0"
 ukrr-models = {git = "https://github.com/renalreg/ukrr_models.git"}
-pyodbc = "^4.0.35"
+pyodbc = "5.3.0"
 xlsxwriter = "^3.1.0"
 openpyxl = "^3.1.2"
 psycopg2 = "^2.9.6"
