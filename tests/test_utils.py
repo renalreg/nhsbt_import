@@ -511,6 +511,7 @@ def test_deleted_patient_check(rr_session):
     for idx, (uk_tssa_no,) in enumerate(mock_results):
         rr_session.add(
             rr_models.UKRR_Deleted_Patient(
+                hosp_centre="HOSP",
                 rr_no=1000 + idx,
                 surname=f"Surname{idx}",
                 forename=f"Forename{idx}",
