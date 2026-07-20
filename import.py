@@ -38,6 +38,7 @@ from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore
 
 from nhsbt_import import utils
 from nhsbt_import.df_columns import df_columns
+from nhsbt_import.number_validation import split_valid_and_invalid_rows
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 args = utils.args_parse()
@@ -394,6 +395,8 @@ def main():
     input_file_path = utils.get_input_file_path(args.directory)
     audit_file_path = os.path.join(args.directory, "audit.xlsx")
     utils.clean_csv(input_file_path)
+    input_file_path = split_valid_and_invalid_rows(input_file_path)
+    #input(f"Review the csv at {input_file_path} ENTER TO CONTINUE")
     session = utils.create_session()
     nhsbt_import(input_file_path, audit_file_path, session)
     if args.commit:
