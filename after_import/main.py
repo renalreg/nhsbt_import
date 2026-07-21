@@ -1,4 +1,6 @@
+import datetime
 import os
+import sys
 import warnings
 
 import pandas as pd
@@ -68,17 +70,124 @@ def run_ukt_link_procedure(session) -> None:
     log.info("PROC_UKT_LINK completed.")
 
 
-def export_ukt_transplant_extract(session, output_directory: str) -> str:
+def export_ukt_transplant_extract(session, output_directory: str) -> tuple[pd.DataFrame, str]:
     """
     Queries VWE_UKT_TRANSPLANT_EXTRACT_NEW and writes the results to CSV,
     replacing the manual SSMS 'copy with headers -> Excel -> Save As CSV' step.
+
+    Returns (df, output_path) so downstream steps can reuse the data without
+    re-querying.
     """
     result = session.execute(text("SELECT * FROM VWE_UKT_TRANSPLANT_EXTRACT_NEW"))
     df = pd.DataFrame(result.fetchall(), columns=result.keys())
 
-    output_path = os.path.join(output_directory, "ukt_transplant_extract.csv")
+    output_path = os.path.join(output_directory, "ukt_transplant_extract_v1.csv")
     df.to_csv(output_path, index=False)
     log.info(f"Exported {len(df)} row(s) to {output_path}")
+    return df, output_path
+
+
+def extract_uktssa_numbers_for_era_id(df: pd.DataFrame, output_directory: str) -> str:
+    """
+    Extracts the distinct UKT_UKTSSA_NO column from the export into its own CSV
+    for manual editing. The manually edited file is expected to come back
+    with two columns: UKT_UKTSSA_NO, ERA_ID.
+
+    Returns the path where the file to be manually edited was written.
+    """
+    if "UKT_UKTSSA_NO" not in df.columns:
+        raise ValueError("Expected column 'UKT_UKTSSA_NO' not found in export.")
+
+    uktssa_df = df[["UKT_UKTSSA_NO"]].drop_duplicates().sort_values("UKT_UKTSSA_NO")
+    uktssa_df["ERA_ID"] = ""  # placeholder column for manual entry
+
+    output_path = os.path.join(output_directory, "uktssa_numbers_for_era_id.csv")
+    uktssa_df.to_csv(output_path, index=False)
+    log.info(f"Wrote {len(uktssa_df)} UKT_UKTSSA_NO row(s) to {output_path} for manual ERA_ID entry.")
+    return output_path
+
+
+def _move_column(df: pd.DataFrame, column: str, position: int) -> pd.DataFrame:
+    """Returns a copy of df with `column` moved to the given 0-indexed position."""
+    cols = [c for c in df.columns if c != column]
+    cols.insert(position, column)
+    return df[cols]
+
+
+def join_era_ids_into_extract(
+    df: pd.DataFrame,
+    edited_uktssa_path: str,
+    output_directory: str,
+    version: int,
+) -> str:
+    """
+    Reads the manually edited UKT_UKTSSA_NO/ERA_ID CSV and joins it back into
+    the original export on UKT_UKTSSA_NO. Saves the result under a new
+    versioned filename.
+    """
+    era_df = pd.read_csv(edited_uktssa_path, na_filter=False)
+
+    missing_cols = {"UKT_UKTSSA_NO", "ERA_ID"} - set(era_df.columns)
+    if missing_cols:
+        raise ValueError(f"Edited file is missing expected column(s): {missing_cols}")
+
+    if era_df["ERA_ID"].eq("").any():
+        missing_count = era_df["ERA_ID"].eq("").sum()
+        log.warning(f"{missing_count} row(s) in {edited_uktssa_path} have a blank ERA_ID.")
+
+    merged_df = df.merge(era_df, on="UKT_UKTSSA_NO", how="left")
+    merged_df = _move_column(merged_df, "ERA_ID", 2)  # 3rd column (0-indexed position 2)
+
+    output_path = os.path.join(output_directory, f"ukt_transplant_extract_v{version}.csv")
+    merged_df.to_csv(output_path, index=False)
+    log.info(f"Joined ERA_ID into extract, saved as {output_path}")
+    return output_path
+
+
+def finalize_extract_with_era_ids(directory: str, extract_version: int = 1) -> str:
+    """
+    Standalone flow, run separately once uktssa_numbers_for_era_id.csv has
+    been manually edited to fill in the ERA_ID column.
+
+    Reads:
+      - ukt_transplant_extract_v{extract_version}.csv (the original export
+        written by export_ukt_transplant_extract)
+      - uktssa_numbers_for_era_id.csv (now filled in with ERA_ID, written by
+        extract_uktssa_numbers_for_era_id)
+
+    Joins ERA_ID into the extract on UKT_UKTSSA_NO and saves the result as
+    "<extract base name>_final.csv" (e.g. ukt_transplant_extract_final.csv).
+
+    Run standalone via:
+        python nhsbt_import.py --finalize
+    """
+    extract_path = os.path.join(directory, f"ukt_transplant_extract_v{extract_version}.csv")
+    if not os.path.exists(extract_path):
+        raise FileNotFoundError(f"Extract file not found: {extract_path}")
+
+    edited_uktssa_path = os.path.join(directory, "uktssa_numbers_for_era_id.csv")
+    if not os.path.exists(edited_uktssa_path):
+        raise FileNotFoundError(f"Edited ERA_ID file not found: {edited_uktssa_path}")
+
+    df = pd.read_csv(extract_path, na_filter=False)
+    era_df = pd.read_csv(edited_uktssa_path, na_filter=False)
+
+    missing_cols = {"UKT_UKTSSA_NO", "ERA_ID"} - set(era_df.columns)
+    if missing_cols:
+        raise ValueError(f"Edited file is missing expected column(s): {missing_cols}")
+
+    if era_df["ERA_ID"].eq("").any():
+        missing_count = era_df["ERA_ID"].eq("").sum()
+        log.warning(f"{missing_count} row(s) in {edited_uktssa_path} have a blank ERA_ID.")
+
+    merged_df = df.merge(era_df, on="UKT_UKTSSA_NO", how="left")
+    merged_df = _move_column(merged_df, "ERA_ID", 2)  # 3rd column (0-indexed position 2)
+
+    base_name = os.path.splitext(os.path.basename(extract_path))[0]  # "ukt_transplant_extract_v1"
+    base_name = base_name.rsplit("_v", 1)[0]  # -> "ukt_transplant_extract"
+    output_path = os.path.join(directory, f"{base_name.upper()}_{datetime.datetime.now().date()}.csv")
+    merged_df.to_csv(output_path, index=False)
+    log.info(f"Joined ERA_ID into extract, saved as {output_path}")
     return output_path
 
 
@@ -95,12 +204,16 @@ def check_unit_names_and_link(directory: str) -> None:
       2. Prompt to add any genuine NHS mismatches to UKT_SITES.
       3. Re-run the check to confirm the fix took effect.
       4. Execute PROC_UKT_LINK.
-      5. Export VWE_UKT_TRANSPLANT_EXTRACT_NEW to CSV.
+      5. Export VWE_UKT_TRANSPLANT_EXTRACT_NEW to CSV (v1).
+      6. Extract UKT_UKTSSA_NO for manual ERA_ID entry.
+      7. Join the manually edited ERA_ID data back in, saving as v2.
     """
     session = utils.create_session()
     try:
         unmatched_df = check_unit_names(session)
-        prompt_and_add_site_codes(session, unmatched_df)
+        df_question=input("pause the program and look at df does it look fine y/n")
+        if df_question == "n":
+            prompt_and_add_site_codes(session, unmatched_df)
 
         remaining = check_unit_names(session)
         if not remaining.empty:
@@ -112,11 +225,16 @@ def check_unit_names_and_link(directory: str) -> None:
             log.info("All TRANSPLANT_UNIT names resolved.")
 
         run_ukt_link_procedure(session)
-        export_path = export_ukt_transplant_extract(session, directory)
+
+        export_df, export_path = export_ukt_transplant_extract(session, directory)
         print(f"Export complete: {export_path}")
+
+        uktssa_path = extract_uktssa_numbers_for_era_id(export_df, directory)
     finally:
         session.close()
 
 
 if __name__ == "__main__":
-    check_unit_names_and_link(args.directory)
+
+    #check_unit_names_and_link(args.directory)
+    finalize_extract_with_era_ids(args.directory)

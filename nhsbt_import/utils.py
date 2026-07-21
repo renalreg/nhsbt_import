@@ -520,8 +520,12 @@ def create_logs(directory: str) -> logging.Logger:
     """
     errors_file_path = os.path.abspath(f"{directory}/errors.log").replace("\\", "/")
 
+    package_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(package_dir)
+    logconf_path = os.path.join(project_root, "logconf.conf")
+
     logging.config.fileConfig(
-        fname="logconf.conf",
+        fname=logconf_path,
         disable_existing_loggers=False,
         defaults={"log_file_name": errors_file_path},
     )
