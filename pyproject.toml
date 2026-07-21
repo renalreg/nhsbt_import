@@ -5,7 +5,7 @@ description = "Import script for NHSBT data"
 authors = ["andyatterton <andrew.atterton@ukkidney.org>"]
 license = "MIT"
 readme = "README.md"
-packages = [{include = "nhsbt_import"}]
+packages = [{include = "nhsbt_import"},{include = "after_import"}]
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.14"
