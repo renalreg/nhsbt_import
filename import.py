@@ -38,7 +38,6 @@ from ukrr_models.rr_models import UKRR_Deleted_Patient  # type: ignore
 
 from nhsbt_import import utils
 from nhsbt_import.df_columns import df_columns
-from nhsbt_import.number_validation import split_valid_and_invalid_rows
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 args = utils.args_parse()
@@ -243,7 +242,7 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
     """
 
     ###################################
-    expected_number_of_columns = 277
+    expected_number_of_columns = 125
     ###################################
 
     nhsbt_df = pd.read_csv(
@@ -251,7 +250,6 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
         na_filter=False,
         skip_blank_lines=True,
     )
-    nhsbt_df=nhsbt_df.rename(columns={"uktr_rsex":"UKTR_RSEX"})
     utils.column_is_int(nhsbt_df, "UKTR_ID")
 
     nhsbt_number_of_columns = nhsbt_df.shape[1]
@@ -319,7 +317,7 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
             deleted_uktssa,
             session,
             UKRR_Deleted_Patient,
-            UKRR_Deleted_Patient.uk_tssa_no,
+            UKRR_Deleted_Patient.uktssa_no,
         )
 
         deleted_data = pd.DataFrame(
@@ -395,8 +393,6 @@ def main():
     input_file_path = utils.get_input_file_path(args.directory)
     audit_file_path = os.path.join(args.directory, "audit.xlsx")
     utils.clean_csv(input_file_path)
-    input_file_path = split_valid_and_invalid_rows(input_file_path)
-    #input(f"Review the csv at {input_file_path} ENTER TO CONTINUE")
     session = utils.create_session()
     nhsbt_import(input_file_path, audit_file_path, session)
     if args.commit:
