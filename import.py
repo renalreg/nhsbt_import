@@ -242,7 +242,7 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
     """
 
     ###################################
-    expected_number_of_columns = 125
+    expected_number_of_columns = 277
     ###################################
 
     nhsbt_df = pd.read_csv(
@@ -317,7 +317,7 @@ def nhsbt_import(input_file_path: str, audit_file_path: str, session: Session):
             deleted_uktssa,
             session,
             UKRR_Deleted_Patient,
-            UKRR_Deleted_Patient.uktssa_no,
+            UKRR_Deleted_Patient.UKTSSA_NO,
         )
 
         deleted_data = pd.DataFrame(
